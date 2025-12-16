@@ -407,32 +407,39 @@ class LandingScreen extends StatelessWidget {
               ],
             ),
             // 사용자 수 아이콘
-            Row(
-              children: [
-                _buildUserAvatar(),
-                const SizedBox(width: -8),
-                _buildUserAvatar(),
-                const SizedBox(width: -8),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+            SizedBox(
+              height: 32,
+              child: Stack(
+                children: [
+                  _buildUserAvatar(),
+                  Positioned(
+                    left: 24,
+                    child: _buildUserAvatar(),
                   ),
-                  child: const Center(
-                    child: Text(
-                      '+2k',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+                  Positioned(
+                    left: 48,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '+2k',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
