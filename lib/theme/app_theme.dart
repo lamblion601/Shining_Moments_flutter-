@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // 이미지 디자인에 맞춘 색상 정의
-  static const Color backgroundColor = Color(0xFFFFFDF7); // 매우 밝은 크림/오프화이트
-  static const Color lightYellow = Color(0xFFFFF9C4); // 밝은 노란색
-  static const Color lightOrange = Color(0xFFFFE0B2); // 밝은 오렌지
-  static const Color lightBlue = Color(0xFFB3E5FC); // 밝은 파란색
-  static const Color lightPurple = Color(0xFFE1BEE7); // 밝은 보라색
-  static const Color lightGreen = Color(0xFFC8E6C9); // 밝은 초록색
-  static const Color textPrimary = Color(0xFF212121); // 검은색
-  static const Color textSecondary = Color(0xFF757575); // 어두운 회색
-  static const Color accentYellow = Color(0xFFFFF176); // 강조 노란색
+  // HTML 디자인에 맞춘 색상 정의
+  static const Color primary = Color(0xFFFFE8A3); // #ffe8a3
+  static const Color primaryHover = Color(0xFFFFE085); // #ffe085
+  static const Color backgroundColor = Color(0xFFF8F8F5); // #f8f8f5
+  static const Color textDark = Color(0xFF332F21); // #332f21
+  static const Color textLight = Color(0xFFF1EEE6); // #f1eee6
+  
+  // 기존 색상들 (호환성 유지)
+  static const Color lightYellow = Color(0xFFFFE8A3);
+  static const Color lightOrange = Color(0xFFFFE085);
+  static const Color lightBlue = Color(0xFFB3E5FC);
+  static const Color lightPurple = Color(0xFFE1BEE7);
+  static const Color lightGreen = Color(0xFFC8E6C9);
+  static const Color textPrimary = Color(0xFF332F21);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color accentYellow = Color(0xFFFFF176);
 
   // 테마 생성
   static ThemeData get lightTheme {

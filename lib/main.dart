@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ArtMind - 빛나는 순간들',
+      title: 'Shining Moments',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
       home: const LandingScreen(),
