@@ -73,7 +73,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.psychology,
+                        Icons.auto_awesome,
                         color: AppTheme.textPrimary,
                         size: 32,
                       ),

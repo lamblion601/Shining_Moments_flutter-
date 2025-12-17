@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.psychology,
+                        Icons.auto_awesome,
                         color: AppTheme.textPrimary,
                         size: 32,
                       ),
