@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../services/auth_service.dart';
 import '../landing/landing_screen.dart';
 import 'signup_screen.dart';
 
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -23,14 +25,53 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: 실제 로그인 로직 구현
-      print('로그인 시도: ${_emailController.text}');
-      // 로그인 성공 시 메인 화면으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LandingScreen()),
-      );
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final authService = AuthService();
+        
+        await authService.signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        // 성공 시 메인 화면으로 이동
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LandingScreen()),
+          );
+        }
+      } catch (e) {
+        // 에러 처리
+        if (mounted) {
+          String errorMessage = '로그인에 실패했습니다.';
+          
+          // Supabase 에러 메시지 파싱
+          if (e.toString().contains('Invalid login credentials')) {
+            errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
+          } else if (e.toString().contains('Email not confirmed')) {
+            errorMessage = '이메일 인증이 필요합니다.';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -67,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.psychology,
+                        Icons.auto_awesome,
                         color: AppTheme.textPrimary,
                         size: 32,
                       ),
@@ -186,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _handleLogin,
+                    onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.lightYellow,
                       foregroundColor: AppTheme.textPrimary,
@@ -194,14 +235,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
+                      disabledBackgroundColor: AppTheme.lightYellow.withOpacity(0.6),
                     ),
-                    child: const Text(
-                      '로그인',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.textPrimary,
+                              ),
+                            ),
+                          )
+                        : const Text(
+                            '로그인',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),

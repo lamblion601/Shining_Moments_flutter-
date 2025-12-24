@@ -930,7 +930,7 @@ class LandingScreen extends StatelessWidget {
                           Icon(Icons.rocket_launch, size: 20),
                           SizedBox(width: 8),
                           Text(
-                            '3초 만에 시작하기',
+                            '아이마음 들여다 보기',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
