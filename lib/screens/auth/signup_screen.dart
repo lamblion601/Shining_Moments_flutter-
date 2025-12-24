@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../services/auth_service.dart';
 import 'login_screen.dart';
 import 'signup_complete_screen.dart';
 
@@ -18,6 +19,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,16 +30,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _handleSignUp() {
+  void _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: 실제 회원가입 로직 구현
-      print('회원가입 시도: ${_emailController.text}');
-      // 회원가입 성공 시 완료 화면으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const SignUpCompleteScreen(),
-        ),
-      );
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final authService = AuthService();
+        
+        await authService.signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+        );
+
+        // 성공 시 완료 화면으로 이동
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const SignUpCompleteScreen(),
+            ),
+          );
+        }
+      } catch (e) {
+        // 에러 처리
+        if (mounted) {
+          String errorMessage = '회원가입에 실패했습니다.';
+          
+          // Supabase 에러 메시지 파싱
+          if (e.toString().contains('already registered')) {
+            errorMessage = '이미 등록된 이메일입니다.';
+          } else if (e.toString().contains('Invalid email')) {
+            errorMessage = '올바른 이메일 형식이 아닙니다.';
+          } else if (e.toString().contains('Password')) {
+            errorMessage = '비밀번호가 너무 짧습니다.';
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -233,7 +277,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _handleSignUp,
+                    onPressed: _isLoading ? null : _handleSignUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.lightYellow,
                       foregroundColor: AppTheme.textPrimary,
@@ -241,14 +285,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
+                      disabledBackgroundColor: AppTheme.lightYellow.withOpacity(0.6),
                     ),
-                    child: const Text(
-                      '회원가입',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.textPrimary,
+                              ),
+                            ),
+                          )
+                        : const Text(
+                            '회원가입',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
