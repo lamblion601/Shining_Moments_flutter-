@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'login_screen.dart';
+import 'signup_complete_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -31,10 +32,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_formKey.currentState!.validate()) {
       // TODO: 실제 회원가입 로직 구현
       print('회원가입 시도: ${_emailController.text}');
-      // 회원가입 성공 시 로그인 화면으로 이동
+      // 회원가입 성공 시 완료 화면으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
+          builder: (context) => const SignUpCompleteScreen(),
         ),
       );
     }
