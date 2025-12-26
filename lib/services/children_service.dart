@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 /// 아이 정보 모델
 class Child {
@@ -128,7 +127,6 @@ class Child {
 /// 아이 정보 관리 서비스
 class ChildrenService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final _uuid = const Uuid();
   String? _tableName; // 캐시된 테이블 이름
 
   /// 테이블 이름 확인 및 캐싱
@@ -303,7 +301,6 @@ class ChildrenService {
 
       final tableName = await _getTableName();
       final parentIdField = tableName == 'tb_children' ? 'parent_user_id' : 'user_id';
-      final idField = tableName == 'tb_children' ? 'child_id' : 'id';
 
       // 테이블 구조에 맞는 필드명 사용
       final childData = <String, dynamic>{
@@ -314,21 +311,8 @@ class ChildrenService {
         if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
       };
 
-      // children 테이블의 경우 id가 UUID일 수 있으므로 UUID 생성
-      // tb_children의 경우 child_id는 자동 증가이므로 제외
-      if (tableName == 'children') {
-        // UUID 생성 (Supabase가 자동 생성하지 않는 경우를 대비)
-        try {
-          childData['id'] = _uuid.v4();
-          print('UUID 생성: ${childData['id']}');
-        } catch (e) {
-          print('UUID 생성 실패, Supabase가 자동 생성하도록 시도: $e');
-          // UUID 생성 실패 시 Supabase가 자동 생성하도록 함
-        }
-      }
-
       print('추가할 데이터: $childData');
-      print('사용할 테이블: $tableName, 부모 ID 필드: $parentIdField, ID 필드: $idField');
+      print('사용할 테이블: $tableName, 부모 ID 필드: $parentIdField');
 
       final response = await _supabase
           .from(tableName)
