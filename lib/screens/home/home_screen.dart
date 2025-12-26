@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ChildrenService _childrenService = ChildrenService();
   List<Child> _children = [];
   bool _isLoadingChildren = true;
+  Child? _selectedChild; // 선택된 아이
 
   String _getUserName() {
     final user = _authService.currentUser;
@@ -92,6 +93,17 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _children = children;
         _isLoadingChildren = false;
+        // 아이 목록이 있고 선택된 아이가 없으면 첫 번째 아이를 기본 선택
+        if (_selectedChild == null && children.isNotEmpty) {
+          _selectedChild = children.first;
+        } else if (_selectedChild != null && children.isNotEmpty) {
+          // 기존 선택된 아이가 있으면 업데이트된 리스트에서 찾아서 업데이트
+          final updatedChild = children.firstWhere(
+            (child) => child.childId == _selectedChild!.childId,
+            orElse: () => children.first,
+          );
+          _selectedChild = updatedChild;
+        }
       });
     } catch (e) {
       print('홈 화면: 아이 목록 로드 에러: $e');
@@ -242,6 +254,209 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showChildDropdown() {
+    if (_children.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 헤더
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[200]!, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '아이 선택',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+            // 아이 목록
+            ..._children.map((child) {
+              final isSelected = _selectedChild?.childId == child.childId;
+              final ageText = child.age != null ? '만 ${child.age}세' : '';
+              final genderText = child.gender == 'M' ? '남자' : child.gender == 'F' ? '여자' : '';
+              
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primary.withOpacity(0.1) : Colors.transparent,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey[100]!, width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // 프로필 아이콘 (클릭 시 선택)
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedChild = child;
+                        });
+                        Navigator.of(context).pop();
+                        print('아이 선택: ${child.name}');
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.child_care,
+                          color: AppTheme.textDark,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // 아이 정보 (클릭 시 선택)
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedChild = child;
+                          });
+                          Navigator.of(context).pop();
+                          print('아이 선택: ${child.name}');
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              child.name ?? '이름 없음',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                            if (ageText.isNotEmpty || genderText.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                [ageText, genderText].where((e) => e.isNotEmpty).join(' • '),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 선택 표시
+                    if (isSelected)
+                      Icon(
+                        Icons.check_circle,
+                        color: AppTheme.primaryHover,
+                        size: 24,
+                      ),
+                    const SizedBox(width: 8),
+                    // 편집 버튼 (프로필 페이지로 이동)
+                    IconButton(
+                      icon: Icon(
+                        Icons.edit,
+                        color: AppTheme.textSecondary,
+                        size: 20,
+                      ),
+                      onPressed: () async {
+                        Navigator.of(context).pop(); // 드롭다운 닫기
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ChildProfileScreen(child: child),
+                          ),
+                        );
+                        if (result == true) {
+                          _loadChildren();
+                        }
+                      },
+                      tooltip: '프로필 수정',
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 8),
+            // 새 아이 추가 버튼
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: InkWell(
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ChildProfileScreen(),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadChildren();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.primary,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add,
+                        color: AppTheme.primaryHover,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '새 아이 추가',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryHover,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileCard() {
     // 아이가 없으면 추가 카드 표시
     if (_isLoadingChildren) {
@@ -328,135 +543,169 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // 첫 번째 아이 정보 표시
-    final firstChild = _children.first;
-    final ageText = firstChild.age != null ? '만 ${firstChild.age}세' : '';
-    final genderText = firstChild.gender == 'M' ? '남자' : firstChild.gender == 'F' ? '여자' : '';
+    // 선택된 아이 정보 표시 (드롭다운 메뉴)
+    final selectedChild = _selectedChild ?? _children.first;
+    final ageText = selectedChild.age != null ? '만 ${selectedChild.age}세' : '';
+    final genderText = selectedChild.gender == 'M' ? '남자' : selectedChild.gender == 'F' ? '여자' : '';
 
-    return InkWell(
-      onTap: () async {
-        final result = await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ChildProfileScreen(child: firstChild),
-          ),
-        );
-        if (result == true) {
-          _loadChildren();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.grey[200]!,
-            width: 1,
-          ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey[200]!,
+          width: 1,
         ),
-        child: Row(
-          children: [
-            // 프로필 사진
-            Stack(
+      ),
+      child: Column(
+        children: [
+          // 아이 정보 표시 영역 (클릭 시 드롭다운)
+          InkWell(
+            onTap: () {
+              _showChildDropdown();
+            },
+            child: Row(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.child_care,
-                    color: AppTheme.textDark,
-                    size: 32,
-                  ),
-                ),
-                // 온라인 상태 표시
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
+                // 프로필 사진
+                Stack(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.child_care,
+                        color: AppTheme.textDark,
+                        size: 32,
                       ),
                     ),
+                    // 온라인 상태 표시
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                // 아이 정보
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedChild.name ?? '이름 없음',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (ageText.isNotEmpty) ...[
+                            Text(
+                              ageText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            if (genderText.isNotEmpty) ...[
+                              Text(
+                                ' • $genderText',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ] else if (genderText.isNotEmpty) ...[
+                            Text(
+                              genderText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                          if (ageText.isEmpty && genderText.isEmpty) ...[
+                            Text(
+                              '오늘도 그림으로 대화해요',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('🎨'),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
+                ),
+                // 드롭다운 아이콘
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppTheme.textSecondary,
                 ),
               ],
             ),
-            const SizedBox(width: 12),
-            // 아이 정보
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    firstChild.name ?? '이름 없음',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textDark,
-                    ),
+          ),
+          // 편집 버튼
+          if (_children.length > 1) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ChildProfileScreen(child: selectedChild),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (ageText.isNotEmpty) ...[
-                        Text(
-                          ageText,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        if (genderText.isNotEmpty) ...[
-                          Text(
-                            ' • $genderText',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ] else if (genderText.isNotEmpty) ...[
-                        Text(
-                          genderText,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                      if (ageText.isEmpty && genderText.isEmpty) ...[
-                        Text(
-                          '오늘도 그림으로 대화해요',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Text('🎨'),
-                      ],
-                    ],
+                );
+                if (result == true) {
+                  _loadChildren();
+                }
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '프로필 수정',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            // 드롭다운 아이콘
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: AppTheme.textSecondary,
-            ),
           ],
-        ),
+        ],
       ),
     );
   }
