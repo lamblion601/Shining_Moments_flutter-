@@ -26,6 +26,25 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   DateTime? _selectedBirthDate;
   String? _selectedGender;
   bool _isLoading = false;
+  
+  // 성향 목록
+  final List<String> _availablePersonalities = [
+    '활발함',
+    '조용함',
+    '창의적',
+    '논리적',
+    '친화적',
+    '독립적',
+    '호기심 많음',
+    '집중력 좋음',
+    '예술적',
+    '운동적',
+    '책 읽기 좋아함',
+    '게임 좋아함',
+  ];
+  
+  // 선택된 성향들
+  final Set<String> _selectedPersonalities = {};
 
   @override
   void initState() {
@@ -35,6 +54,13 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
       _nameController.text = widget.child!.name ?? '';
       _selectedBirthDate = widget.child!.birthDate;
       _selectedGender = widget.child!.gender;
+      
+      // 기존 성향 데이터 로드
+      if (widget.child!.personality != null && widget.child!.personality!.isNotEmpty) {
+        _selectedPersonalities.addAll(
+          widget.child!.personality!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty)
+        );
+      }
     }
   }
 
@@ -120,13 +146,19 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     });
 
     try {
+      // 선택된 성향을 쉼표로 구분된 문자열로 변환
+      final personalityString = _selectedPersonalities.isEmpty 
+          ? null 
+          : _selectedPersonalities.join(', ');
+      
       if (widget.child == null) {
         // 추가 모드
-        print('아이 추가 시작: ${_nameController.text}');
+        print('아이 추가 시작: ${_nameController.text}, 성향: $personalityString');
         await _childrenService.addChild(
           name: _nameController.text.trim(),
           birthDate: _selectedBirthDate!,
           gender: _selectedGender!,
+          personality: personalityString,
         );
         print('아이 추가 완료');
         if (mounted) {
@@ -140,12 +172,13 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
         }
       } else {
         // 수정 모드
-        print('아이 정보 수정 시작: ${widget.child!.childId}');
+        print('아이 정보 수정 시작: ${widget.child!.childId}, 성향: $personalityString');
         await _childrenService.updateChild(
           childId: widget.child!.childId!,
           name: _nameController.text.trim(),
           birthDate: _selectedBirthDate,
           gender: _selectedGender,
+          personality: personalityString,
         );
         print('아이 정보 수정 완료');
         if (mounted) {
@@ -384,6 +417,90 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 24),
+                    // 성향 선택
+                    Text(
+                      '성향',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '아이의 성향을 선택해주세요 (여러 개 선택 가능)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // 성향 태그들
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availablePersonalities.map((personality) {
+                        final isSelected = _selectedPersonalities.contains(personality);
+                        return FilterChip(
+                          label: Text(personality),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedPersonalities.add(personality);
+                              } else {
+                                _selectedPersonalities.remove(personality);
+                              }
+                            });
+                            print('성향 선택 변경: $personality -> $selected, 선택된 성향: $_selectedPersonalities');
+                          },
+                          selectedColor: AppTheme.primary.withOpacity(0.3),
+                          checkmarkColor: AppTheme.primaryHover,
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.primaryHover : AppTheme.textDark,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          side: BorderSide(
+                            color: isSelected ? AppTheme.primaryHover : Colors.grey[300]!,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    if (_selectedPersonalities.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primary.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: AppTheme.primaryHover,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '선택된 성향: ${_selectedPersonalities.join(', ')}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textDark,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                     // 저장 버튼
                     SizedBox(

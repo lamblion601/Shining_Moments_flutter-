@@ -8,6 +8,7 @@ class Child {
   final DateTime? birthDate;
   final String? gender; // 'M' 또는 'F'
   final String? profileImageUrl;
+  final String? personality; // 성향 (쉼표로 구분된 문자열 또는 JSON)
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -18,6 +19,7 @@ class Child {
     this.birthDate,
     this.gender,
     this.profileImageUrl,
+    this.personality,
     this.createdAt,
     this.updatedAt,
   });
@@ -76,6 +78,7 @@ class Child {
       birthDate: birthDate,
       gender: json['gender']?.toString(),
       profileImageUrl: json['profile_image_url']?.toString(),
+      personality: json['personality']?.toString(),
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
@@ -97,6 +100,7 @@ class Child {
       if (birthDate != null) 'birth_date': birthDate!.toIso8601String().split('T')[0],
       if (gender != null) 'gender': gender,
       if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
+      if (personality != null) 'personality': personality,
     };
   }
 
@@ -108,6 +112,7 @@ class Child {
     DateTime? birthDate,
     String? gender,
     String? profileImageUrl,
+    String? personality,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -118,6 +123,7 @@ class Child {
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      personality: personality ?? this.personality,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -288,9 +294,10 @@ class ChildrenService {
     required DateTime birthDate,
     required String gender,
     String? profileImageUrl,
+    String? personality,
   }) async {
     try {
-      print('아이 추가 시작: name=$name, birthDate=$birthDate, gender=$gender');
+      print('아이 추가 시작: name=$name, birthDate=$birthDate, gender=$gender, personality=$personality');
       final user = _supabase.auth.currentUser;
       if (user == null) {
         print('에러: 사용자가 로그인하지 않았습니다.');
@@ -309,6 +316,7 @@ class ChildrenService {
         'birth_date': birthDate.toIso8601String().split('T')[0],
         'gender': gender,
         if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
+        if (personality != null && personality.isNotEmpty) 'personality': personality,
       };
 
       print('추가할 데이터: $childData');
@@ -337,6 +345,7 @@ class ChildrenService {
     DateTime? birthDate,
     String? gender,
     String? profileImageUrl,
+    String? personality,
   }) async {
     try {
       print('아이 정보 수정 시작: childId=$childId');
@@ -352,6 +361,7 @@ class ChildrenService {
       }
       if (gender != null) updateData['gender'] = gender;
       if (profileImageUrl != null) updateData['profile_image_url'] = profileImageUrl;
+      if (personality != null) updateData['personality'] = personality;
 
       print('수정할 데이터: $updateData');
 
