@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import '../landing/landing_screen.dart';
+import '../home/home_screen.dart';
 
 class SignUpCompleteScreen extends StatelessWidget {
   const SignUpCompleteScreen({super.key});
@@ -312,10 +312,10 @@ class SignUpCompleteScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     print('서비스 시작하기 버튼 클릭');
-                    // 메인 화면으로 이동
+                    // 홈 화면으로 이동
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const LandingScreen(),
+                        builder: (context) => const HomeScreen(),
                       ),
                       (route) => false,
                     );
@@ -380,5 +380,6 @@ class ScribblePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
 
 

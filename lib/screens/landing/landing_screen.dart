@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../auth/signup_screen.dart';
+import '../capture/capture_screen.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -90,15 +92,15 @@ class LandingScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              // 로그인 버튼
+              // 회원가입 버튼
               TextButton(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(builder: (context) => const SignUpScreen()),
                   );
                 },
                 child: const Text(
-                  '로그인',
+                  '회원가입',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
@@ -912,7 +914,9 @@ class LandingScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const CaptureScreen(),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
