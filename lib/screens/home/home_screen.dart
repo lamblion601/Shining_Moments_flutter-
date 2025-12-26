@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/children_service.dart';
 import '../capture/capture_screen.dart';
+import '../profile/profile_screen.dart';
+import '../children/child_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +17,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final AuthService _authService = AuthService();
+  final ChildrenService _childrenService = ChildrenService();
+  List<Child> _children = [];
+  bool _isLoadingChildren = true;
 
   String _getUserName() {
     final user = _authService.currentUser;
@@ -45,10 +51,81 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadChildren();
+  }
+
+  Future<void> _loadChildren() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoadingChildren = true;
+    });
+    try {
+      print('홈 화면: 아이 목록 로드 시작');
+      
+      // 먼저 연결 테스트
+      final connectionTest = await _childrenService.testConnection();
+      print('연결 테스트 결과: $connectionTest');
+      
+      if (connectionTest['error'] != null) {
+        print('연결 테스트 실패: ${connectionTest['error']}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Supabase 연결 오류:\n${connectionTest['error']}\n\n'
+                'Supabase 대시보드에서 테이블을 확인해주세요.',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+      
+      final children = await _childrenService.getChildren();
+      print('홈 화면: 아이 목록 로드 완료 - ${children.length}개');
+      
+      if (!mounted) return;
+      setState(() {
+        _children = children;
+        _isLoadingChildren = false;
+      });
+    } catch (e) {
+      print('홈 화면: 아이 목록 로드 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '아이 목록을 불러오는 중 오류가 발생했습니다:\n$e',
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _isLoadingChildren = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final dateFormat = DateFormat('M월 d일, EEEE', 'ko_KR');
-    final dateString = dateFormat.format(now);
+    String dateString;
+    try {
+      final dateFormat = DateFormat('M월 d일, EEEE', 'ko_KR');
+      dateString = dateFormat.format(now);
+    } catch (e) {
+      // 로케일 초기화가 안 된 경우 기본 형식 사용
+      print('날짜 포맷 에러: $e');
+      dateString = DateFormat('M월 d일', 'ko_KR').format(now);
+    }
     
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -151,7 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.person_outline),
                 color: AppTheme.textDark,
                 onPressed: () {
-                  print('프로필 클릭');
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -162,90 +243,220 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 1,
+    // 아이가 없으면 추가 카드 표시
+    if (_isLoadingChildren) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.grey[200]!,
+            width: 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          // 프로필 사진
-          Stack(
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_children.isEmpty) {
+      return InkWell(
+        onTap: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ChildProfileScreen(),
+            ),
+          );
+          if (result == true) {
+            _loadChildren();
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.primary,
+              width: 2,
+            ),
+          ),
+          child: Row(
             children: [
               Container(
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.blue[100],
+                  color: AppTheme.primary.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.person,
-                  color: AppTheme.textDark,
+                  Icons.add,
+                  color: AppTheme.primaryHover,
                   size: 32,
                 ),
               ),
-              // 온라인 상태 표시
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // 아이 정보
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '이지우',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      '아이 정보 추가하기',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryHover,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      '오늘도 그림으로 대화해요',
+                      '첫 번째 아이를 등록해주세요',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Text('🎨'),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 첫 번째 아이 정보 표시
+    final firstChild = _children.first;
+    final ageText = firstChild.age != null ? '만 ${firstChild.age}세' : '';
+    final genderText = firstChild.gender == 'M' ? '남자' : firstChild.gender == 'F' ? '여자' : '';
+
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ChildProfileScreen(child: firstChild),
+          ),
+        );
+        if (result == true) {
+          _loadChildren();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.grey[200]!,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // 프로필 사진
+            Stack(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[100],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.child_care,
+                    color: AppTheme.textDark,
+                    size: 32,
+                  ),
+                ),
+                // 온라인 상태 표시
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          // 드롭다운 아이콘
-          Icon(
-            Icons.keyboard_arrow_down,
-            color: AppTheme.textSecondary,
-          ),
-        ],
+            const SizedBox(width: 12),
+            // 아이 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    firstChild.name ?? '이름 없음',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (ageText.isNotEmpty) ...[
+                        Text(
+                          ageText,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        if (genderText.isNotEmpty) ...[
+                          Text(
+                            ' • $genderText',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ] else if (genderText.isNotEmpty) ...[
+                        Text(
+                          genderText,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                      if (ageText.isEmpty && genderText.isEmpty) ...[
+                        Text(
+                          '오늘도 그림으로 대화해요',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('🎨'),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // 드롭다운 아이콘
+            Icon(
+              Icons.keyboard_arrow_down,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -554,10 +765,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
-        print('$label 탭 클릭');
+        if (index == 3) {
+          // 설정 탭 클릭 시 프로필 화면으로 이동
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ProfileScreen(),
+            ),
+          );
+        } else {
+          setState(() {
+            _currentIndex = index;
+          });
+          print('$label 탭 클릭');
+        }
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
