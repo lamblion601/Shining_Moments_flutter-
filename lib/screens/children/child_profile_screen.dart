@@ -27,21 +27,9 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   String? _selectedGender;
   bool _isLoading = false;
   
-  // 성향 목록
-  final List<String> _availablePersonalities = [
-    '활발함',
-    '조용함',
-    '창의적',
-    '논리적',
-    '친화적',
-    '독립적',
-    '호기심 많음',
-    '집중력 좋음',
-    '예술적',
-    '운동적',
-    '책 읽기 좋아함',
-    '게임 좋아함',
-  ];
+  // 성향 목록 (traits 테이블에서 가져옴)
+  List<String> _availablePersonalities = [];
+  bool _isLoadingTraits = false;
   
   // 선택된 성향들
   final Set<String> _selectedPersonalities = {};
@@ -49,16 +37,53 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _loadTraits();
+    
     // 수정 모드인 경우 기존 데이터로 초기화
     if (widget.child != null) {
       _nameController.text = widget.child!.name ?? '';
       _selectedBirthDate = widget.child!.birthDate;
       _selectedGender = widget.child!.gender;
       
-      // 기존 성향 데이터 로드
-      if (widget.child!.personality != null && widget.child!.personality!.isNotEmpty) {
-        _selectedPersonalities.addAll(
-          widget.child!.personality!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty)
+      // 기존 성향 데이터 로드 (List<String>에서 가져옴)
+      if (widget.child!.personality.isNotEmpty) {
+        _selectedPersonalities.addAll(widget.child!.personality);
+      }
+    }
+  }
+
+  /// traits 테이블에서 성향 목록 로드
+  Future<void> _loadTraits() async {
+    setState(() {
+      _isLoadingTraits = true;
+    });
+    
+    try {
+      print('성향 목록 로드 시작');
+      final traits = await _childrenService.getTraits();
+      print('성향 목록 로드 성공: ${traits.length}개');
+      
+      if (mounted) {
+        setState(() {
+          _availablePersonalities = traits
+              .map((trait) => trait['name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toList();
+          _isLoadingTraits = false;
+        });
+        print('사용 가능한 성향 목록: $_availablePersonalities');
+      }
+    } catch (e) {
+      print('성향 목록 로드 에러: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingTraits = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('성향 목록을 불러오는 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -146,19 +171,17 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     });
 
     try {
-      // 선택된 성향을 쉼표로 구분된 문자열로 변환
-      final personalityString = _selectedPersonalities.isEmpty 
-          ? null 
-          : _selectedPersonalities.join(', ');
+      // 선택된 성향을 List<String>으로 변환
+      final personalityList = _selectedPersonalities.toList();
       
       if (widget.child == null) {
         // 추가 모드
-        print('아이 추가 시작: ${_nameController.text}, 성향: $personalityString');
+        print('아이 추가 시작: ${_nameController.text}, 성향: $personalityList');
         await _childrenService.addChild(
           name: _nameController.text.trim(),
           birthDate: _selectedBirthDate!,
           gender: _selectedGender!,
-          personality: personalityString,
+          personality: personalityList.isEmpty ? null : personalityList,
         );
         print('아이 추가 완료');
         if (mounted) {
@@ -172,13 +195,13 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
         }
       } else {
         // 수정 모드
-        print('아이 정보 수정 시작: ${widget.child!.childId}, 성향: $personalityString');
+        print('아이 정보 수정 시작: ${widget.child!.childId}, 성향: $personalityList');
         await _childrenService.updateChild(
           childId: widget.child!.childId!,
           name: _nameController.text.trim(),
           birthDate: _selectedBirthDate,
           gender: _selectedGender,
-          personality: personalityString,
+          personality: personalityList.isEmpty ? null : personalityList,
         );
         print('아이 정보 수정 완료');
         if (mounted) {
@@ -436,10 +459,29 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                     ),
                     const SizedBox(height: 12),
                     // 성향 태그들
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _availablePersonalities.map((personality) {
+                    _isLoadingTraits
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        : _availablePersonalities.isEmpty
+                            ? Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '성향 목록을 불러올 수 없습니다.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                            : Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _availablePersonalities.map((personality) {
                         final isSelected = _selectedPersonalities.contains(personality);
                         return FilterChip(
                           label: Text(personality),
@@ -466,7 +508,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                           ),
                         );
                       }).toList(),
-                    ),
+                            ),
                     if (_selectedPersonalities.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Container(

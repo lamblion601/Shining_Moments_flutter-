@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/children_service.dart';
 import '../capture/capture_screen.dart';
 import '../profile/profile_screen.dart';
 import '../children/child_profile_screen.dart';
+import '../analysis/analysis_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Child> _children = [];
   bool _isLoadingChildren = true;
   Child? _selectedChild; // 선택된 아이
+  List<Map<String, dynamic>> _recentDrawings = []; // 최근 분석 기록
+  bool _isLoadingDrawings = false;
 
   String _getUserName() {
     final user = _authService.currentUser;
@@ -55,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadChildren();
+    _loadRecentDrawings();
   }
 
   Future<void> _loadChildren() async {
@@ -121,6 +126,35 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _isLoadingChildren = false;
+        });
+      }
+    }
+  }
+
+  /// 최근 분석 기록 로드
+  Future<void> _loadRecentDrawings() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoadingDrawings = true;
+    });
+    
+    try {
+      print('홈 화면: 최근 분석 기록 로드 시작');
+      final drawings = await _childrenService.getRecentDrawings(limit: 5);
+      print('홈 화면: 최근 분석 기록 로드 완료 - ${drawings.length}개');
+      
+      if (mounted) {
+        setState(() {
+          _recentDrawings = drawings;
+          _isLoadingDrawings = false;
+        });
+      }
+    } catch (e) {
+      print('홈 화면: 최근 분석 기록 로드 에러: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingDrawings = false;
         });
       }
     }
@@ -869,11 +903,106 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// 실제 데이터로부터 분석 기록 카드 생성
+  Widget _buildRecordCardFromData(Map<String, dynamic> drawing) {
+    // 날짜 포맷팅
+    String dateText = '날짜 없음';
+    if (drawing['created_at'] != null) {
+      try {
+        final dateTime = DateTime.parse(drawing['created_at']);
+        dateText = DateFormat('yyyy.MM.dd', 'ko_KR').format(dateTime);
+      } catch (e) {
+        print('날짜 파싱 에러: $e');
+      }
+    }
+    
+    // 제목 (description 또는 기본값)
+    final title = drawing['description']?.toString() ?? '그림 분석';
+    
+    // 분석 결과에서 태그와 이모지 추출
+    List<String> tags = [];
+    String emoji = '🎨';
+    
+    if (drawing['analysis_result'] != null) {
+      final analysisResult = drawing['analysis_result'];
+      if (analysisResult is Map) {
+        // 감정 태그
+        if (analysisResult['emotion'] != null) {
+          tags.add('#${analysisResult['emotion']}');
+        }
+        if (analysisResult['tags'] != null && analysisResult['tags'] is List) {
+          final analysisTags = analysisResult['tags'] as List;
+          for (var tag in analysisTags) {
+            if (tag != null && !tags.contains('#$tag')) {
+              tags.add('#$tag');
+            }
+          }
+        }
+        // 이모지
+        if (analysisResult['emotionEmoji'] != null) {
+          emoji = analysisResult['emotionEmoji'].toString();
+        }
+      }
+    }
+    
+    // 아이 이름
+    final childName = drawing['child_name'] ?? '아이';
+    
+    return InkWell(
+      onTap: () {
+        print('분석 기록 클릭: ${drawing['id']}');
+        // 분석 결과 페이지로 이동
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              // 아이 정보 찾기
+              Child? child;
+              if (drawing['children_id'] != null) {
+                final childId = drawing['children_id'].toString();
+                child = _children.firstWhere(
+                  (c) => c.childId == childId,
+                  orElse: () => _selectedChild ?? (_children.isNotEmpty ? _children.first : Child(parentUserId: '')),
+                );
+              } else {
+                child = _selectedChild ?? (_children.isNotEmpty ? _children.first : null);
+              }
+              
+              // 분석 데이터 준비
+              Map<String, dynamic>? analysisData;
+              if (drawing['analysis_result'] != null && drawing['analysis_result'] is Map) {
+                analysisData = Map<String, dynamic>.from(drawing['analysis_result'] as Map);
+              }
+              
+              // 이미지 파일 (URL이 있으면 나중에 네트워크 이미지로 처리)
+              File? imageFile;
+              
+              return AnalysisResultScreen(
+                imageFile: imageFile, // URL은 나중에 처리
+                selectedChild: child,
+                analysisData: analysisData,
+              );
+            },
+          ),
+        );
+      },
+      child: _buildRecordCard(
+        date: dateText,
+        title: title,
+        tags: tags.isEmpty ? ['#분석중'] : tags,
+        emoji: emoji,
+        childName: childName,
+        imageUrl: drawing['image_url']?.toString(),
+      ),
+    );
+  }
+
   Widget _buildRecordCard({
     required String date,
     required String title,
     required List<String> tags,
     required String emoji,
+    String? childName,
+    String? imageUrl,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -887,7 +1016,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          // 이미지 플레이스홀더
+          // 이미지 플레이스홀더 또는 실제 이미지
           Container(
             width: 60,
             height: 60,
@@ -895,11 +1024,26 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.grey[200],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.image_outlined,
-              color: Colors.grey[400],
-              size: 32,
-            ),
+            child: imageUrl != null && imageUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.image_outlined,
+                          color: Colors.grey[400],
+                          size: 32,
+                        );
+                      },
+                    ),
+                  )
+                : Icon(
+                    Icons.image_outlined,
+                    color: Colors.grey[400],
+                    size: 32,
+                  ),
           ),
           const SizedBox(width: 12),
           // 정보

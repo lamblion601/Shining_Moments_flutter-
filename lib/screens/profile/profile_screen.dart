@@ -346,7 +346,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Colors.orange,
       Colors.pink,
     ];
-    final avatarColor = colors[child.childId != null ? (child.childId! % colors.length) : 0];
+    final avatarColor = colors[child.childId != null 
+        ? (child.childId!.hashCode.abs() % colors.length) 
+        : 0];
 
     return InkWell(
       onTap: () async {

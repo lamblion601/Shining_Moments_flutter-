@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../theme/app_theme.dart';
+import '../../services/children_service.dart';
+import '../analysis/analysis_loading_screen.dart';
+import '../analysis/analysis_result_screen.dart';
 
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key});
@@ -14,6 +17,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   final ImagePicker _picker = ImagePicker();
   XFile? _pickedImage;
   bool _isLoading = false;
+  final ChildrenService _childrenService = ChildrenService();
+  Child? _selectedChild;
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -59,6 +64,47 @@ class _CaptureScreenState extends State<CaptureScreen> {
         );
       }
     }
+  }
+
+  void _navigateToAnalysisLoading() {
+    print('그림 분석중 버튼 클릭 - 분석 로딩 페이지로 이동');
+    
+    // 이미지 파일이 있으면 사용하고, 없으면 null로 처리
+    File? testImageFile;
+    
+    if (_pickedImage != null) {
+      testImageFile = File(_pickedImage!.path);
+    }
+    
+    // 분석 로딩 페이지로 이동
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AnalysisLoadingScreen(
+          imageFile: testImageFile,
+          selectedChild: _selectedChild,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToAnalysisResult() {
+    print('그림 분석 결과 버튼 클릭 - 테스트 모드');
+    
+    // 테스트용: 이미지 파일이 있으면 사용하고, 없으면 null로 처리
+    File? testImageFile;
+    
+    if (_pickedImage != null) {
+      testImageFile = File(_pickedImage!.path);
+    }
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AnalysisResultScreen(
+          imageFile: testImageFile,
+          selectedChild: _selectedChild,
+        ),
+      ),
+    );
   }
 
   void _showImageSourceDialog() {
@@ -313,6 +359,62 @@ class _CaptureScreenState extends State<CaptureScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          // 그림 분석중 버튼 (테스트용)
+          SizedBox(
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                print('그림 분석중 버튼 클릭 - 테스트');
+                // 테스트용 더미 이미지 파일 생성
+                // 실제 파일이 없어도 테스트할 수 있도록 처리
+                _navigateToAnalysisLoading();
+              },
+              icon: const Icon(Icons.auto_awesome, size: 24),
+              label: const Text(
+                '그림 분석중',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryHover,
+                foregroundColor: AppTheme.textDark,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 그림 분석 결과 버튼 (테스트용)
+          SizedBox(
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                print('그림 분석 결과 버튼 클릭 - 테스트');
+                _navigateToAnalysisResult();
+              },
+              icon: const Icon(Icons.assessment, size: 24),
+              label: const Text(
+                '그림 분석 결과',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 32),
           // 안내 문구
           Container(
@@ -429,10 +531,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   height: 56,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // TODO: 분석 페이지로 이동
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('분석 기능은 곧 추가될 예정입니다.'),
+                      print('AI 분석하기 버튼 클릭');
+                      // 분석 로딩 페이지로 이동
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => AnalysisLoadingScreen(
+                            imageFile: File(_pickedImage!.path),
+                            selectedChild: _selectedChild,
+                          ),
                         ),
                       );
                     },

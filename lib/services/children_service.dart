@@ -2,13 +2,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 아이 정보 모델
 class Child {
-  final int? childId;
+  final String? childId; // UUID를 문자열로 처리
   final String parentUserId;
   final String? name;
   final DateTime? birthDate;
   final String? gender; // 'M' 또는 'F'
   final String? profileImageUrl;
-  final String? personality; // 성향 (쉼표로 구분된 문자열 또는 JSON)
+  final List<String> personality; // 성향 목록 (traits 테이블의 name 값들)
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -19,10 +19,10 @@ class Child {
     this.birthDate,
     this.gender,
     this.profileImageUrl,
-    this.personality,
+    List<String>? personality,
     this.createdAt,
     this.updatedAt,
-  });
+  }) : personality = personality ?? [];
 
   /// 연령 계산 (만 나이)
   int? get age {
@@ -40,16 +40,12 @@ class Child {
   factory Child.fromJson(Map<String, dynamic> json) {
     print('Child.fromJson 파싱 시작: $json');
     
-    // child_id 또는 id 필드 처리
-    int? childId;
+    // child_id 또는 id 필드 처리 (UUID를 문자열로 처리)
+    String? childId;
     if (json.containsKey('child_id')) {
-      childId = json['child_id'] is int 
-          ? json['child_id'] as int
-          : int.tryParse(json['child_id'].toString());
+      childId = json['child_id']?.toString();
     } else if (json.containsKey('id')) {
-      childId = json['id'] is int 
-          ? json['id'] as int
-          : int.tryParse(json['id'].toString());
+      childId = json['id']?.toString();
     }
 
     // parent_user_id 또는 user_id 필드 처리
@@ -78,7 +74,7 @@ class Child {
       birthDate: birthDate,
       gender: json['gender']?.toString(),
       profileImageUrl: json['profile_image_url']?.toString(),
-      personality: json['personality']?.toString(),
+      personality: [], // 성향은 별도로 조회해야 함 (children_traits 테이블)
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
@@ -100,19 +96,19 @@ class Child {
       if (birthDate != null) 'birth_date': birthDate!.toIso8601String().split('T')[0],
       if (gender != null) 'gender': gender,
       if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
-      if (personality != null) 'personality': personality,
+      // personality는 children_traits 테이블에 별도로 저장
     };
   }
 
   /// 복사 생성자 (수정 시 사용)
   Child copyWith({
-    int? childId,
+    String? childId,
     String? parentUserId,
     String? name,
     DateTime? birthDate,
     String? gender,
     String? profileImageUrl,
-    String? personality,
+    List<String>? personality,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -241,12 +237,21 @@ class ChildrenService {
         return [];
       }
 
-      return (response as List)
-          .map((json) {
-            print('아이 데이터 파싱: $json');
-            return Child.fromJson(json as Map<String, dynamic>);
-          })
-          .toList();
+      final children = <Child>[];
+      for (var json in response as List) {
+        print('아이 데이터 파싱: $json');
+        final child = Child.fromJson(json as Map<String, dynamic>);
+        
+        // 각 아이의 성향 정보 조회
+        if (child.childId != null) {
+          final traits = await getChildTraits(child.childId!);
+          children.add(child.copyWith(personality: traits));
+        } else {
+          children.add(child);
+        }
+      }
+      
+      return children;
     } catch (e) {
       print('아이 목록 조회 에러 상세: $e');
       print('에러 타입: ${e.runtimeType}');
@@ -256,7 +261,7 @@ class ChildrenService {
   }
 
   /// 특정 아이 정보 조회
-  Future<Child?> getChild(int childId) async {
+  Future<Child?> getChild(String childId) async {
     try {
       print('아이 정보 조회 시작: childId=$childId');
       final user = _supabase.auth.currentUser;
@@ -276,7 +281,11 @@ class ChildrenService {
           .single();
 
       print('아이 정보 조회 성공');
-      return Child.fromJson(response as Map<String, dynamic>);
+      final child = Child.fromJson(response as Map<String, dynamic>);
+      
+      // 성향 정보 조회
+      final traits = await getChildTraits(childId);
+      return child.copyWith(personality: traits);
     } catch (e) {
       print('아이 정보 조회 에러: $e');
       if (e.toString().contains('PGRST116') || 
@@ -288,13 +297,144 @@ class ChildrenService {
     }
   }
 
+  /// 성향 목록 조회 (traits 테이블)
+  Future<List<Map<String, dynamic>>> getTraits() async {
+    try {
+      print('성향 목록 조회 시작');
+      final response = await _supabase
+          .from('traits')
+          .select()
+          .order('id');
+      
+      print('성향 목록 조회 성공: ${response.length}개');
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('성향 목록 조회 에러: $e');
+      return [];
+    }
+  }
+
+  /// 아이의 성향 조회 (children_traits 테이블)
+  Future<List<String>> getChildTraits(String childId) async {
+    try {
+      print('아이 성향 조회 시작: childId=$childId');
+      
+      // children_traits에서 trait_id 목록 조회
+      final childrenTraitsResponse = await _supabase
+          .from('children_traits')
+          .select('trait_id')
+          .eq('child_id', childId);
+      
+      print('아이 성향 조회 응답: $childrenTraitsResponse');
+      
+      if (childrenTraitsResponse.isEmpty) {
+        return [];
+      }
+      
+      // trait_id 목록 추출
+      final traitIds = <int>[];
+      for (var item in childrenTraitsResponse as List) {
+        final traitId = item['trait_id'];
+        if (traitId != null) {
+          traitIds.add(traitId is int ? traitId : int.tryParse(traitId.toString()) ?? 0);
+        }
+      }
+      
+      if (traitIds.isEmpty) {
+        return [];
+      }
+      
+      // traits 테이블에서 name 조회 (각 trait_id에 대해 개별 조회)
+      final traitNames = <String>[];
+      for (final traitId in traitIds) {
+        try {
+          final traitResponse = await _supabase
+              .from('traits')
+              .select('name')
+              .eq('id', traitId)
+              .maybeSingle();
+          
+          if (traitResponse != null) {
+            final name = traitResponse['name']?.toString();
+            if (name != null && name.isNotEmpty) {
+              traitNames.add(name);
+            }
+          }
+        } catch (e) {
+          print('성향 조회 에러 (id=$traitId): $e');
+        }
+      }
+      
+      print('아이 성향 조회 성공: $traitNames');
+      return traitNames;
+    } catch (e) {
+      print('아이 성향 조회 에러: $e');
+      return [];
+    }
+  }
+
+  /// 아이의 성향 저장/수정 (children_traits 테이블)
+  Future<void> setChildTraits(String childId, List<String> traitNames) async {
+    try {
+      print('아이 성향 저장 시작: childId=$childId, traitNames=$traitNames');
+      
+      // 먼저 traits 테이블에서 trait_id 조회
+      // Supabase에서는 inFilter 대신 각각 조회하거나 or 조건 사용
+      // traitNames가 많을 수 있으므로 각각 조회
+      final traitIds = <int>[];
+      for (final traitName in traitNames) {
+        try {
+          final traitResponse = await _supabase
+              .from('traits')
+              .select('id')
+              .eq('name', traitName)
+              .maybeSingle();
+          
+          if (traitResponse != null) {
+            final id = traitResponse['id'] as int?;
+            if (id != null) {
+              traitIds.add(id);
+            }
+          }
+        } catch (e) {
+          print('성향 조회 에러 (name=$traitName): $e');
+        }
+      }
+      
+      print('조회된 trait_ids: $traitIds');
+      
+      // 기존 성향 삭제
+      await _supabase
+          .from('children_traits')
+          .delete()
+          .eq('child_id', childId);
+      
+      // 새로운 성향 추가
+      if (traitIds.isNotEmpty) {
+        final insertData = traitIds.map((traitId) => {
+          'child_id': childId,
+          'trait_id': traitId,
+        }).toList();
+        
+        await _supabase
+            .from('children_traits')
+            .insert(insertData);
+      }
+      
+      print('아이 성향 저장 성공');
+    } catch (e) {
+      print('아이 성향 저장 에러: $e');
+      rethrow;
+    }
+  }
+
   /// 아이 정보 추가
   Future<Child> addChild({
     required String name,
     required DateTime birthDate,
     required String gender,
     String? profileImageUrl,
-    String? personality,
+    List<String>? personality,
   }) async {
     try {
       print('아이 추가 시작: name=$name, birthDate=$birthDate, gender=$gender, personality=$personality');
@@ -316,7 +456,7 @@ class ChildrenService {
         'birth_date': birthDate.toIso8601String().split('T')[0],
         'gender': gender,
         if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
-        if (personality != null && personality.isNotEmpty) 'personality': personality,
+        // personality는 children_traits 테이블에 별도로 저장
       };
 
       print('추가할 데이터: $childData');
@@ -328,8 +468,18 @@ class ChildrenService {
           .select()
           .single();
 
-      print('아이 추가 성공: childId=${response['child_id'] ?? response['id']}');
-      return Child.fromJson(response as Map<String, dynamic>);
+      final childId = (response['child_id'] ?? response['id'])?.toString();
+      print('아이 추가 성공: childId=$childId');
+      
+      final child = Child.fromJson(response as Map<String, dynamic>);
+      
+      // 성향 저장
+      if (childId != null && personality != null && personality.isNotEmpty) {
+        await setChildTraits(childId, personality);
+        return child.copyWith(personality: personality);
+      }
+      
+      return child;
     } catch (e) {
       print('아이 추가 에러 상세: $e');
       print('에러 타입: ${e.runtimeType}');
@@ -340,12 +490,12 @@ class ChildrenService {
 
   /// 아이 정보 수정
   Future<Child> updateChild({
-    required int childId,
+    required String childId,
     String? name,
     DateTime? birthDate,
     String? gender,
     String? profileImageUrl,
-    String? personality,
+    List<String>? personality,
   }) async {
     try {
       print('아이 정보 수정 시작: childId=$childId');
@@ -361,7 +511,7 @@ class ChildrenService {
       }
       if (gender != null) updateData['gender'] = gender;
       if (profileImageUrl != null) updateData['profile_image_url'] = profileImageUrl;
-      if (personality != null) updateData['personality'] = personality;
+      // personality는 children_traits 테이블에 별도로 저장
 
       print('수정할 데이터: $updateData');
 
@@ -378,7 +528,17 @@ class ChildrenService {
           .single();
 
       print('아이 정보 수정 성공');
-      return Child.fromJson(response as Map<String, dynamic>);
+      final child = Child.fromJson(response as Map<String, dynamic>);
+      
+      // 성향 수정
+      if (personality != null) {
+        await setChildTraits(childId, personality);
+        return child.copyWith(personality: personality);
+      }
+      
+      // 성향 정보 조회
+      final traits = await getChildTraits(childId);
+      return child.copyWith(personality: traits);
     } catch (e) {
       print('아이 정보 수정 에러: $e');
       rethrow;
@@ -386,7 +546,7 @@ class ChildrenService {
   }
 
   /// 아이 정보 삭제
-  Future<void> deleteChild(int childId) async {
+  Future<void> deleteChild(String childId) async {
     try {
       print('아이 삭제 시작: childId=$childId');
       final user = _supabase.auth.currentUser;
@@ -394,6 +554,12 @@ class ChildrenService {
         throw Exception('로그인이 필요합니다.');
       }
 
+      // 먼저 children_traits 테이블에서 성향 삭제
+      await _supabase
+          .from('children_traits')
+          .delete()
+          .eq('child_id', childId);
+      
       final tableName = await _getTableName();
       final idField = tableName == 'tb_children' ? 'child_id' : 'id';
       final parentIdField = tableName == 'tb_children' ? 'parent_user_id' : 'user_id';
@@ -408,6 +574,52 @@ class ChildrenService {
     } catch (e) {
       print('아이 삭제 에러: $e');
       rethrow;
+    }
+  }
+
+  /// 최근 분석 기록 조회 (drawings 테이블)
+  Future<List<Map<String, dynamic>>> getRecentDrawings({int limit = 5}) async {
+    try {
+      print('최근 분석 기록 조회 시작: limit=$limit');
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+
+      final response = await _supabase
+          .from('drawings')
+          .select('id, image_url, description, analysis_result, created_at, children_id, children(name)')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      print('최근 분석 기록 조회 성공: ${response.length}개');
+      
+      final drawings = <Map<String, dynamic>>[];
+      for (var item in response as List) {
+        final drawing = <String, dynamic>{
+          'id': item['id']?.toString(),
+          'image_url': item['image_url']?.toString(),
+          'description': item['description']?.toString(),
+          'analysis_result': item['analysis_result'],
+          'created_at': item['created_at']?.toString(),
+          'children_id': item['children_id']?.toString(),
+          'child_name': null as String?,
+        };
+        
+        // children 정보에서 이름 가져오기
+        final childrenData = item['children'];
+        if (childrenData != null && childrenData is Map) {
+          drawing['child_name'] = childrenData['name']?.toString();
+        }
+        
+        drawings.add(drawing);
+      }
+      
+      return drawings;
+    } catch (e) {
+      print('최근 분석 기록 조회 에러: $e');
+      return [];
     }
   }
 }
