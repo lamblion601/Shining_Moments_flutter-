@@ -241,12 +241,72 @@ ORDER BY created_at DESC;
 
 ### Storage 업로드 실패
 
+**에러 메시지**: 
+```
+StorageException(message: new row violates row-level security policy, statusCode: 403, error: Unauthorized)
+```
+
 **원인**: Storage 버킷이 생성되지 않았거나 권한이 없습니다.
 
-**해결**:
-1. Storage 메뉴에서 `drawings` 버킷이 생성되어 있는지 확인
-2. 버킷이 public으로 설정되어 있는지 확인
-3. Storage Policies 확인
+**해결 방법**:
+
+#### 1단계: 버킷 생성 확인
+
+1. Supabase Dashboard 접속
+2. 왼쪽 메뉴에서 **Storage** 클릭
+3. `drawings` 버킷이 있는지 확인
+
+#### 2단계: 버킷 생성 (없는 경우)
+
+1. **"New bucket"** 또는 **"Create a new bucket"** 버튼 클릭
+2. 다음 정보 입력:
+   - **Name**: `drawings` (정확히 입력)
+   - **Public bucket**: ✅ **반드시 체크** (중요!)
+   - **Allowed MIME types**: `image/jpeg,image/png,image/jpg`
+   - **File size limit**: `10 MB`
+3. **"Create bucket"** 클릭
+
+#### 3단계: Storage Policies 설정
+
+버킷을 생성한 후, Storage Policies를 설정해야 합니다.
+
+1. Storage 메뉴에서 `drawings` 버킷 클릭
+2. **"Policies"** 탭 클릭
+3. 다음 SQL을 실행:
+
+```sql
+-- 읽기 권한 (모두 허용)
+CREATE POLICY "Anyone can view drawings"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'drawings' );
+
+-- 업로드 권한 (인증된 사용자만)
+CREATE POLICY "Authenticated users can upload drawings"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'drawings' 
+  AND auth.role() = 'authenticated'
+);
+
+-- 삭제 권한 (파일 소유자만)
+CREATE POLICY "Users can delete their own drawings"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'drawings' 
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+```
+
+#### 4단계: 테스트
+
+앱을 다시 실행하고 그림 분석을 시도해보세요.
+
+#### 여전히 실패하는 경우
+
+1. **버킷 이름 확인**: 정확히 `drawings`인지 확인 (대소문자 구분)
+2. **Public 설정 확인**: 버킷이 Public으로 설정되어 있는지 확인
+3. **로그인 상태 확인**: 앱에서 로그인되어 있는지 확인
+4. **네트워크 확인**: 인터넷 연결 상태 확인
 
 ## 데이터베이스 마이그레이션 (추가 기능)
 

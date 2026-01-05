@@ -156,10 +156,38 @@ New-Item -Path ".env" -ItemType File
 # GEMINI_API_KEY=여기에_발급받은_API_키_입력
 ```
 
-### 이미지 업로드 실패
+### 이미지 업로드 실패 (Storage 에러)
 
-Supabase Storage에 `drawings` 버킷이 생성되어 있는지 확인하세요.
-버킷은 public으로 설정되어야 합니다.
+**에러**: `StorageException: row-level security policy, statusCode: 403`
+
+**원인**: Supabase Storage 버킷이 생성되지 않았습니다.
+
+**해결 방법**:
+1. [Supabase Dashboard](https://supabase.com/dashboard) 접속
+2. Storage 메뉴로 이동
+3. "Create a new bucket" 클릭
+4. 다음 설정으로 버킷 생성:
+   - Name: `drawings` (정확히 입력)
+   - Public bucket: ✅ 반드시 체크
+   - File size limit: 10 MB
+5. Storage Policies 설정 (SQL Editor에서 실행):
+
+```sql
+-- 읽기 권한 (모두)
+CREATE POLICY "Anyone can view drawings"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'drawings' );
+
+-- 업로드 권한 (인증된 사용자)
+CREATE POLICY "Authenticated users can upload drawings"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'drawings' 
+  AND auth.role() = 'authenticated'
+);
+```
+
+상세 가이드: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) 참조
 
 ### 분석 결과가 표시되지 않음
 

@@ -8,32 +8,50 @@ class StorageService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String bucketName = 'drawings';
   
-  /// Storage 버킷이 존재하는지 확인하고 없으면 생성
+  /// Storage 버킷이 존재하는지 확인
+  /// 버킷이 없으면 사용자에게 안내 메시지를 표시하도록 에러를 던짐
   Future<void> ensureBucketExists() async {
     try {
-      print('Storage 버킷 확인: $bucketName');
+      print('📦 Storage 버킷 확인: $bucketName');
       
       // 버킷 목록 조회
       final buckets = await _supabase.storage.listBuckets();
       final bucketExists = buckets.any((bucket) => bucket.name == bucketName);
       
       if (!bucketExists) {
-        print('버킷이 없습니다. 생성 시도 중...');
-        // 버킷 생성 (public 설정)
-        await _supabase.storage.createBucket(
-          bucketName,
-          const BucketOptions(public: true),
+        print('❌ 버킷이 없습니다: $bucketName');
+        throw Exception(
+          'Supabase Storage 버킷이 설정되지 않았습니다.\n\n'
+          '해결 방법:\n'
+          '1. Supabase Dashboard에 접속\n'
+          '2. Storage 메뉴로 이동\n'
+          '3. "drawings" 버킷 생성 (public으로 설정)\n\n'
+          '자세한 가이드는 docs/SUPABASE_SETUP.md를 참조하세요.'
         );
-        print('버킷 생성 완료: $bucketName');
       } else {
-        print('버킷이 이미 존재합니다: $bucketName');
+        print('✅ 버킷이 존재합니다: $bucketName');
       }
     } catch (e) {
-      print('버킷 확인/생성 에러: $e');
-      // 이미 존재하는 경우의 에러는 무시
-      if (!e.toString().contains('already exists')) {
-        rethrow;
+      print('❌ 버킷 확인 에러: $e');
+      
+      // RLS 정책 관련 에러인 경우
+      if (e.toString().contains('row-level security') || 
+          e.toString().contains('403') ||
+          e.toString().contains('Unauthorized')) {
+        throw Exception(
+          'Supabase Storage 권한 문제가 발생했습니다.\n\n'
+          '해결 방법:\n'
+          '1. Supabase Dashboard → Storage로 이동\n'
+          '2. "drawings" 버킷이 있는지 확인\n'
+          '3. 없다면 새 버킷 생성:\n'
+          '   - Name: drawings\n'
+          '   - Public: 체크\n'
+          '4. 이미 있다면 RLS 정책 확인\n\n'
+          '자세한 가이드는 docs/SUPABASE_SETUP.md를 참조하세요.'
+        );
       }
+      
+      rethrow;
     }
   }
   
@@ -45,8 +63,8 @@ class StorageService {
     required String childId,
   }) async {
     try {
-      print('이미지 업로드 시작: userId=$userId, childId=$childId');
-      print('파일 경로: ${imageFile.path}');
+      print('📤 이미지 업로드 시작: userId=$userId, childId=$childId');
+      print('📁 파일 경로: ${imageFile.path}');
       
       // 파일이 존재하는지 확인
       if (!await imageFile.exists()) {
@@ -54,12 +72,16 @@ class StorageService {
       }
       
       final fileSize = await imageFile.length();
-      print('파일 크기: $fileSize bytes');
+      print('📊 파일 크기: ${(fileSize / 1024).toStringAsFixed(1)} KB');
       
       // 파일 크기 제한 (10MB)
       const maxFileSize = 10 * 1024 * 1024; // 10MB
       if (fileSize > maxFileSize) {
-        throw Exception('파일 크기가 너무 큽니다. 최대 10MB까지 업로드 가능합니다.');
+        throw Exception(
+          '파일 크기가 너무 큽니다.\n'
+          '현재: ${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB\n'
+          '최대: 10 MB'
+        );
       }
       
       // 버킷 존재 확인
@@ -69,10 +91,10 @@ class StorageService {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = path.extension(imageFile.path).toLowerCase();
       final fileName = '${userId}_${childId}_$timestamp$extension';
-      print('파일명: $fileName');
+      print('📝 파일명: $fileName');
       
       // Supabase Storage에 업로드
-      print('Supabase Storage 업로드 시작...');
+      print('🚀 Supabase Storage 업로드 중...');
       final uploadPath = await _supabase.storage
           .from(bucketName)
           .upload(
@@ -84,19 +106,27 @@ class StorageService {
             ),
           );
       
-      print('업로드 완료: $uploadPath');
+      print('✅ 업로드 완료: $uploadPath');
       
       // Public URL 생성
       final publicUrl = _supabase.storage
           .from(bucketName)
           .getPublicUrl(fileName);
       
-      print('Public URL: $publicUrl');
+      print('🔗 Public URL: $publicUrl');
       return publicUrl;
     } catch (e, stackTrace) {
-      print('이미지 업로드 에러: $e');
-      print('에러 스택: $stackTrace');
-      rethrow;
+      print('❌ 이미지 업로드 에러: $e');
+      print('📋 에러 스택: $stackTrace');
+      
+      // Storage 관련 에러인 경우 더 명확한 메시지
+      if (e.toString().contains('Storage') || 
+          e.toString().contains('버킷') ||
+          e.toString().contains('bucket')) {
+        rethrow; // 이미 명확한 메시지가 있음
+      }
+      
+      throw Exception('이미지 업로드 실패: ${e.toString()}');
     }
   }
   

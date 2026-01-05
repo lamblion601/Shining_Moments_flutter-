@@ -206,8 +206,13 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
         errorMessage = '아이 정보가 없습니다.\n먼저 아이 프로필을 등록해주세요.';
       } else if (e.toString().contains('GEMINI_API_KEY')) {
         errorMessage = 'Gemini API 키가 설정되지 않았습니다.\n.env 파일에 GEMINI_API_KEY를 추가해주세요.';
+      } else if (e.toString().contains('Supabase Storage') || 
+                 e.toString().contains('버킷') || 
+                 e.toString().contains('row-level security')) {
+        // Storage 관련 에러는 이미 명확한 메시지가 있으므로 그대로 사용
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
       } else if (e.toString().contains('Storage')) {
-        errorMessage = '이미지 업로드에 실패했습니다.';
+        errorMessage = '이미지 업로드에 실패했습니다.\n네트워크 연결을 확인해주세요.';
       } else if (e.toString().contains('로그인')) {
         errorMessage = '로그인이 필요합니다.';
       } else if (e.toString().contains('시간 초과')) {
