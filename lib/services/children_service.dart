@@ -583,53 +583,60 @@ class ChildrenService {
       print('최근 분석 기록 조회 시작: limit=$limit');
       final user = _supabase.auth.currentUser;
       if (user == null) {
+        print('에러: 사용자가 로그인하지 않았습니다.');
         throw Exception('로그인이 필요합니다.');
       }
 
-      // children 테이블 이름 확인 (children 또는 tb_children)
-      String childrenTable = 'children';
-      try {
-        await _supabase.from('tb_children').select().limit(0);
-        childrenTable = 'tb_children';
-        print('아이 테이블 이름: tb_children');
-      } catch (e) {
-        print('아이 테이블 이름: children (기본값)');
-      }
+      print('현재 사용자 ID: ${user.id}');
 
+      // drawings 테이블에서 직접 조회 (조인 없이)
       final response = await _supabase
           .from('drawings')
-          .select('id, image_url, description, analysis_result, created_at, child_id, $childrenTable!inner(name)')
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', ascending: false)
           .limit(limit);
 
       print('최근 분석 기록 조회 성공: ${response.length}개');
+      print('응답 데이터: $response');
       
       final drawings = <Map<String, dynamic>>[];
+      
+      // 아이 정보 미리 조회 (캐시용)
+      final children = await getChildren();
+      final childrenMap = <String, String>{};
+      for (var child in children) {
+        if (child.childId != null && child.name != null) {
+          childrenMap[child.childId!] = child.name!;
+        }
+      }
+      print('아이 목록 캐시: ${childrenMap.keys.length}개');
+      
       for (var item in response as List) {
+        print('분석 기록 항목: $item');
+        
+        final childId = item['child_id']?.toString();
+        final childName = childId != null ? childrenMap[childId] : null;
+        
         final drawing = <String, dynamic>{
           'id': item['id']?.toString(),
           'image_url': item['image_url']?.toString(),
           'description': item['description']?.toString(),
           'analysis_result': item['analysis_result'],
           'created_at': item['created_at']?.toString(),
-          'child_id': item['child_id']?.toString(),
-          'child_name': null as String?,
+          'child_id': childId,
+          'child_name': childName ?? '아이',
         };
         
-        // children 정보에서 이름 가져오기
-        final childrenData = item[childrenTable];
-        if (childrenData != null && childrenData is Map) {
-          drawing['child_name'] = childrenData['name']?.toString();
-        }
-        
         drawings.add(drawing);
+        print('변환된 drawing: id=${drawing['id']}, child_name=${drawing['child_name']}');
       }
       
+      print('최종 반환 drawings: ${drawings.length}개');
       return drawings;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('최근 분석 기록 조회 에러: $e');
-      print('에러 상세: ${e.toString()}');
+      print('에러 스택: $stackTrace');
       return [];
     }
   }
