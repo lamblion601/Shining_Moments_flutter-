@@ -586,9 +586,19 @@ class ChildrenService {
         throw Exception('로그인이 필요합니다.');
       }
 
+      // children 테이블 이름 확인 (children 또는 tb_children)
+      String childrenTable = 'children';
+      try {
+        await _supabase.from('tb_children').select().limit(0);
+        childrenTable = 'tb_children';
+        print('아이 테이블 이름: tb_children');
+      } catch (e) {
+        print('아이 테이블 이름: children (기본값)');
+      }
+
       final response = await _supabase
           .from('drawings')
-          .select('id, image_url, description, analysis_result, created_at, children_id, children(name)')
+          .select('id, image_url, description, analysis_result, created_at, child_id, $childrenTable!inner(name)')
           .eq('user_id', user.id)
           .order('created_at', ascending: false)
           .limit(limit);
@@ -603,12 +613,12 @@ class ChildrenService {
           'description': item['description']?.toString(),
           'analysis_result': item['analysis_result'],
           'created_at': item['created_at']?.toString(),
-          'children_id': item['children_id']?.toString(),
+          'child_id': item['child_id']?.toString(),
           'child_name': null as String?,
         };
         
         // children 정보에서 이름 가져오기
-        final childrenData = item['children'];
+        final childrenData = item[childrenTable];
         if (childrenData != null && childrenData is Map) {
           drawing['child_name'] = childrenData['name']?.toString();
         }
@@ -619,6 +629,7 @@ class ChildrenService {
       return drawings;
     } catch (e) {
       print('최근 분석 기록 조회 에러: $e');
+      print('에러 상세: ${e.toString()}');
       return [];
     }
   }

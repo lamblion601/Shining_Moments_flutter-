@@ -855,6 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () {
                 print('전체보기 클릭');
+                // TODO: 전체 기록 화면으로 이동
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -878,27 +879,67 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        // 분석 기록 카드들
-        _buildRecordCard(
-          date: '2023.10.24',
-          title: '우리 가족 소풍',
-          tags: ['#맹독함', '#창의적'],
-          emoji: '😊',
-        ),
-        const SizedBox(height: 12),
-        _buildRecordCard(
-          date: '2023.10.20',
-          title: '놀이터 친구들',
-          tags: ['#상상력'],
-          emoji: '😐',
-        ),
-        const SizedBox(height: 12),
-        _buildRecordCard(
-          date: '2023.10.15',
-          title: '사과나무',
-          tags: ['#안정감'],
-          emoji: '😊',
-        ),
+        // 로딩 중일 때
+        if (_isLoadingDrawings)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryHover,
+              ),
+            ),
+          )
+        // 데이터가 없을 때
+        else if (_recentDrawings.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.grey[200]!,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.image_outlined,
+                  size: 48,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '아직 분석한 그림이 없어요',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '아이의 그림을 분석하면 여기에 표시됩니다',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          )
+        // 실제 데이터 표시
+        else
+          ...List.generate(
+            _recentDrawings.length,
+            (index) {
+              final drawing = _recentDrawings[index];
+              return Padding(
+                padding: EdgeInsets.only(bottom: index < _recentDrawings.length - 1 ? 12 : 0),
+                child: _buildRecordCardFromData(drawing),
+              );
+            },
+          ),
       ],
     );
   }
@@ -957,12 +998,16 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) {
               // 아이 정보 찾기
               Child? child;
-              if (drawing['children_id'] != null) {
-                final childId = drawing['children_id'].toString();
-                child = _children.firstWhere(
-                  (c) => c.childId == childId,
-                  orElse: () => _selectedChild ?? (_children.isNotEmpty ? _children.first : Child(parentUserId: '')),
-                );
+              if (drawing['child_id'] != null) {
+                final childId = drawing['child_id'].toString();
+                try {
+                  child = _children.firstWhere(
+                    (c) => c.childId == childId,
+                  );
+                } catch (e) {
+                  // 해당 아이를 찾지 못한 경우 기본값 사용
+                  child = _selectedChild ?? (_children.isNotEmpty ? _children.first : null);
+                }
               } else {
                 child = _selectedChild ?? (_children.isNotEmpty ? _children.first : null);
               }
