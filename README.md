@@ -118,10 +118,43 @@ dependencies:
 
 ## 문제 해결
 
+### 무한 로딩 현상 🔄
+
+**증상**: "AI 분석하기" 버튼을 눌렀을 때 로딩이 계속되고 결과가 나오지 않음
+
+**해결 방법**:
+1. **`.env` 파일 확인** (가장 흔한 원인!)
+   - 프로젝트 루트에 `.env` 파일이 있는지 확인
+   - `GEMINI_API_KEY=여기에_API_키` 형식으로 작성되었는지 확인
+   - 상세 가이드: [GEMINI_SETUP.md](GEMINI_SETUP.md)
+
+2. **네트워크 연결 확인**
+   - Wi-Fi 또는 모바일 데이터 연결 상태 확인
+   - VPN 사용 중이라면 VPN 끄고 시도
+
+3. **앱 재시작**
+   - Hot Reload가 아닌 앱을 완전히 종료 후 재시작
+   - 터미널에서 `flutter run` 다시 실행
+
+4. **Timeout 설정**
+   - API 호출은 최대 60초까지 대기
+   - 60초 후 자동으로 에러 메시지 표시
+   - "Gemini API 호출 시간 초과" 에러가 뜨면 잠시 후 다시 시도
+
 ### "GEMINI_API_KEY가 설정되지 않았습니다" 에러
 
 `.env` 파일이 없거나 API 키가 설정되지 않은 경우입니다.
 [GEMINI_SETUP.md](GEMINI_SETUP.md)의 설정 가이드를 따라주세요.
+
+**빠른 해결:**
+```bash
+# Windows PowerShell (프로젝트 루트에서 실행)
+cd c:\project\Shining_Moments_flutter
+New-Item -Path ".env" -ItemType File
+
+# .env 파일에 다음 내용 추가
+# GEMINI_API_KEY=여기에_발급받은_API_키_입력
+```
 
 ### 이미지 업로드 실패
 
@@ -133,6 +166,7 @@ Supabase Storage에 `drawings` 버킷이 생성되어 있는지 확인하세요.
 1. Gemini API 키가 올바른지 확인
 2. 네트워크 연결 확인
 3. Gemini API 할당량 확인 (무료: 일일 1,500회)
+4. 터미널 로그에서 에러 메시지 확인
 
 ## 개발 로그
 

@@ -15,20 +15,22 @@ class GeminiService {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       
       if (apiKey == null || apiKey.isEmpty) {
+        print('⚠️ GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.');
+        print('📝 .env.example 파일을 .env로 복사하고 API 키를 입력하세요.');
         throw Exception(
           'GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.\n'
-          '.env 파일을 생성하고 GEMINI_API_KEY=your_api_key_here 를 추가해주세요.'
+          '.env.example 파일을 .env로 복사하고 GEMINI_API_KEY를 설정해주세요.'
         );
       }
       
-      print('Gemini API 초기화 시작');
+      print('🔑 Gemini API 초기화 시작...');
       _model = GenerativeModel(
         model: 'gemini-1.5-flash',
         apiKey: apiKey,
       );
-      print('Gemini API 초기화 완료');
+      print('✅ Gemini API 초기화 완료');
     } catch (e) {
-      print('Gemini API 초기화 에러: $e');
+      print('❌ Gemini API 초기화 에러: $e');
       rethrow;
     }
   }
@@ -40,10 +42,11 @@ class GeminiService {
     required Child child,
   }) async {
     try {
-      print('그림 분석 시작: childName=${child.name}, age=${child.age}');
+      print('🎨 그림 분석 시작: childName=${child.name}, age=${child.age}');
       
       // 모델이 초기화되지 않았다면 초기화
       if (_model == null) {
+        print('⚙️ Gemini 모델 초기화 중...');
         await initialize();
       }
       
@@ -53,11 +56,11 @@ class GeminiService {
       
       // 이미지 파일 읽기
       final imageBytes = await imageFile.readAsBytes();
-      print('이미지 파일 크기: ${imageBytes.length} bytes');
+      print('📷 이미지 파일 크기: ${imageBytes.length} bytes');
       
       // 아이 정보를 포함한 프롬프트 작성
       final prompt = _buildAnalysisPrompt(child);
-      print('프롬프트 생성 완료');
+      print('📝 프롬프트 생성 완료');
       
       // Gemini API 호출
       final content = [
@@ -67,26 +70,49 @@ class GeminiService {
         ])
       ];
       
-      print('Gemini API 호출 중...');
-      final response = await _model!.generateContent(content);
-      print('Gemini API 응답 받음');
+      print('🚀 Gemini API 호출 중... (최대 60초 대기)');
+      
+      // Timeout 설정 (60초)
+      final response = await _model!.generateContent(content)
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () {
+              print('⏱️ Gemini API 호출 시간 초과!');
+              throw Exception('Gemini API 호출 시간 초과 (60초).\n네트워크 연결을 확인하거나 나중에 다시 시도해주세요.');
+            },
+          );
+      
+      print('✅ Gemini API 응답 받음');
       
       if (response.text == null || response.text!.isEmpty) {
+        print('⚠️ Gemini API가 빈 응답을 반환했습니다.');
         throw Exception('Gemini API가 빈 응답을 반환했습니다.');
       }
       
-      print('응답 텍스트 길이: ${response.text!.length}');
+      print('📊 응답 텍스트 길이: ${response.text!.length}');
       
       // JSON 응답 파싱
       final analysisResult = _parseResponse(response.text!);
-      print('분석 결과 파싱 완료: emotion=${analysisResult['emotion']}');
+      print('✅ 분석 결과 파싱 완료: emotion=${analysisResult['emotion']}');
       
       return analysisResult;
     } catch (e, stackTrace) {
-      print('그림 분석 에러: $e');
-      print('에러 스택: $stackTrace');
+      print('❌ 그림 분석 에러: $e');
+      print('📋 에러 스택: $stackTrace');
       
-      // 에러 발생 시 기본 분석 결과 반환 (사용자 경험 개선)
+      // API 키 관련 에러인 경우 더 명확한 메시지
+      if (e.toString().contains('GEMINI_API_KEY')) {
+        print('🔑 Gemini API 키를 설정해주세요!');
+        rethrow;
+      }
+      
+      // Timeout 에러인 경우 명확한 메시지
+      if (e.toString().contains('시간 초과')) {
+        rethrow;
+      }
+      
+      // 기타 에러 발생 시 기본 분석 결과 반환 (사용자 경험 개선)
+      print('⚠️ 에러 발생으로 기본 분석 결과 반환');
       return _getDefaultAnalysis();
     }
   }
