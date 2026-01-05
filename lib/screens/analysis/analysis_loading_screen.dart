@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/children_service.dart';
+import '../../services/gemini_service.dart';
+import '../../services/storage_service.dart';
+import '../../services/drawings_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'analysis_result_screen.dart';
 
 /// 그림 분석 로딩 화면
@@ -25,6 +29,15 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
   late AnimationController _rotateController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _rotateAnimation;
+  
+  // 서비스 인스턴스
+  final GeminiService _geminiService = GeminiService();
+  final StorageService _storageService = StorageService();
+  final DrawingsService _drawingsService = DrawingsService();
+  
+  // 진행 상태
+  String _currentStep = '이미지 업로드 중...';
+  int _completedSteps = 0;
 
   @override
   void initState() {
@@ -56,50 +69,127 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
   }
 
   Future<void> _startAnalysis() async {
+    String? imageUrl;
+    String? drawingId;
+    
     try {
-      print('그림 분석 시작');
-      if (widget.imageFile != null && widget.imageFile!.existsSync()) {
-        print('이미지 파일 경로: ${widget.imageFile!.path}');
+      print('=== 그림 분석 프로세스 시작 ===');
+      
+      // 필수 정보 확인
+      if (widget.imageFile == null || !widget.imageFile!.existsSync()) {
+        throw Exception('이미지 파일이 없습니다.');
       }
-      print('선택된 아이: ${widget.selectedChild?.name ?? "없음"}');
       
-      // TODO: 실제 AI 분석 API 호출
-      // 여기서는 시뮬레이션으로 10초 대기
-      await Future.delayed(const Duration(seconds: 10));
+      if (widget.selectedChild == null || widget.selectedChild!.childId == null) {
+        throw Exception('아이 정보가 없습니다.');
+      }
       
-      print('그림 분석 완료 - 결과 페이지로 이동 준비');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+      
+      print('이미지 파일: ${widget.imageFile!.path}');
+      print('아이: ${widget.selectedChild!.name}');
+      print('사용자: ${user.id}');
+      
+      // ========== 1단계: 이미지 업로드 ==========
+      if (mounted) {
+        setState(() {
+          _currentStep = '이미지 업로드 중...';
+          _completedSteps = 0;
+        });
+      }
+      
+      print('[1/4] Storage 업로드 시작...');
+      imageUrl = await _storageService.uploadDrawing(
+        imageFile: widget.imageFile!,
+        userId: user.id,
+        childId: widget.selectedChild!.childId!,
+      );
+      print('[1/4] Storage 업로드 완료: $imageUrl');
+      
+      if (mounted) {
+        setState(() {
+          _completedSteps = 1;
+        });
+      }
+      
+      // ========== 2단계: Gemini AI 분석 ==========
+      if (mounted) {
+        setState(() {
+          _currentStep = 'AI가 그림을 분석하는 중...';
+          _completedSteps = 1;
+        });
+      }
+      
+      print('[2/4] Gemini 분석 시작...');
+      final analysisResult = await _geminiService.analyzeDrawing(
+        imageFile: widget.imageFile!,
+        child: widget.selectedChild!,
+      );
+      print('[2/4] Gemini 분석 완료: emotion=${analysisResult['emotion']}');
+      
+      if (mounted) {
+        setState(() {
+          _completedSteps = 2;
+        });
+      }
+      
+      // ========== 3단계: 데이터베이스 저장 ==========
+      if (mounted) {
+        setState(() {
+          _currentStep = '분석 결과 저장 중...';
+          _completedSteps = 2;
+        });
+      }
+      
+      print('[3/4] DB 저장 시작...');
+      final drawing = await _drawingsService.saveDrawing(
+        childId: widget.selectedChild!.childId!,
+        imageUrl: imageUrl,
+        analysisResult: analysisResult,
+      );
+      drawingId = drawing.id;
+      print('[3/4] DB 저장 완료: drawingId=$drawingId');
+      
+      if (mounted) {
+        setState(() {
+          _completedSteps = 3;
+        });
+      }
+      
+      // ========== 4단계: 결과 화면으로 이동 ==========
+      if (mounted) {
+        setState(() {
+          _currentStep = '완료!';
+          _completedSteps = 4;
+        });
+      }
+      
+      await Future.delayed(const Duration(milliseconds: 500));
       
       if (!mounted) {
         print('위젯이 dispose되어 이동 불가');
         return;
       }
       
-      // 분석 결과 페이지로 이동 (더 확실하게 처리)
-      print('AnalysisResultScreen 생성 및 네비게이션 시작');
-      
-      // 이미지 파일이 존재하는지 확인
-      File? imageFileToPass;
-      if (widget.imageFile != null && widget.imageFile!.existsSync()) {
-        imageFileToPass = widget.imageFile;
-      }
-      
-      // pushReplacement로 현재 화면을 결과 화면으로 교체
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) {
-              print('AnalysisResultScreen 생성 중...');
-              return AnalysisResultScreen(
-                imageFile: imageFileToPass,
-                selectedChild: widget.selectedChild,
-              );
-            },
+      print('[4/4] 결과 화면으로 이동...');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => AnalysisResultScreen(
+            imageFile: widget.imageFile,
+            selectedChild: widget.selectedChild,
+            analysisData: analysisResult,
+            drawingId: drawingId,
           ),
-        );
-        print('분석 결과 페이지로 이동 완료');
-      }
+        ),
+      );
+      print('=== 그림 분석 프로세스 완료 ===');
+      
     } catch (e, stackTrace) {
-      print('분석 에러 발생: $e');
+      print('=== 분석 에러 발생 ===');
+      print('에러: $e');
       print('에러 타입: ${e.runtimeType}');
       print('에러 스택: $stackTrace');
       
@@ -108,39 +198,46 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
         return;
       }
       
-      // 에러가 발생해도 결과 페이지는 보여주기
-      try {
-        print('에러 발생 후에도 결과 페이지로 이동 시도');
-        await Future.delayed(const Duration(milliseconds: 200));
-        
-        if (!mounted) return;
-        
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => AnalysisResultScreen(
-              imageFile: widget.imageFile != null && widget.imageFile!.existsSync() 
-                  ? widget.imageFile 
-                  : null,
-              selectedChild: widget.selectedChild,
-            ),
+      // 에러 메시지 표시
+      String errorMessage = '분석 중 오류가 발생했습니다.';
+      
+      if (e.toString().contains('GEMINI_API_KEY')) {
+        errorMessage = 'Gemini API 키가 설정되지 않았습니다.\n.env 파일에 GEMINI_API_KEY를 추가해주세요.';
+      } else if (e.toString().contains('Storage')) {
+        errorMessage = '이미지 업로드에 실패했습니다.';
+      } else if (e.toString().contains('로그인')) {
+        errorMessage = '로그인이 필요합니다.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: '확인',
+            textColor: Colors.white,
+            onPressed: () {},
           ),
-        );
-        print('에러 후 결과 페이지 이동 성공');
-      } catch (finalError, finalStack) {
-        print('최종 네비게이션 에러: $finalError');
-        print('최종 에러 스택: $finalStack');
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('분석 중 오류가 발생했습니다: $e'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          // 에러 발생 시 이전 화면으로 돌아가기
-          Navigator.of(context).pop();
+        ),
+      );
+      
+      // 업로드된 이미지가 있다면 삭제 (클린업)
+      if (imageUrl != null) {
+        try {
+          print('에러 발생으로 업로드된 이미지 삭제 시도...');
+          await _storageService.deleteDrawing(imageUrl);
+          print('업로드된 이미지 삭제 완료');
+        } catch (cleanupError) {
+          print('이미지 삭제 실패: $cleanupError');
         }
+      }
+      
+      // 2초 후 이전 화면으로 돌아가기
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        Navigator.of(context).pop();
       }
     }
   }
@@ -271,7 +368,7 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'AI가 색채, 구도, 필압 등을\n정밀하게 분석 중입니다',
+                        _currentStep,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16,
@@ -317,28 +414,31 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       child: Column(
         children: [
           _buildStepItem(
-            icon: Icons.palette,
-            title: '색채 분석',
-            isCompleted: true,
+            icon: Icons.cloud_upload,
+            title: '이미지 업로드',
+            isCompleted: _completedSteps > 0,
+            isActive: _completedSteps == 0,
           ),
           const SizedBox(height: 16),
           _buildStepItem(
             icon: Icons.auto_awesome,
-            title: '구도 및 형태 분석',
-            isCompleted: true,
+            title: 'AI 그림 분석',
+            isCompleted: _completedSteps > 1,
+            isActive: _completedSteps == 1,
           ),
           const SizedBox(height: 16),
           _buildStepItem(
             icon: Icons.psychology,
-            title: '심리 상태 분석',
-            isCompleted: false,
-            isActive: true,
+            title: '심리 해석',
+            isCompleted: _completedSteps > 2,
+            isActive: _completedSteps == 2,
           ),
           const SizedBox(height: 16),
           _buildStepItem(
-            icon: Icons.lightbulb,
-            title: '맞춤 조언 생성',
-            isCompleted: false,
+            icon: Icons.save,
+            title: '결과 저장',
+            isCompleted: _completedSteps > 3,
+            isActive: _completedSteps == 3,
           ),
         ],
       ),

@@ -2,20 +2,86 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/children_service.dart';
+import '../../services/drawings_service.dart';
 
 /// 그림 분석 결과 화면
-class AnalysisResultScreen extends StatelessWidget {
+class AnalysisResultScreen extends StatefulWidget {
   final File? imageFile;
   final Child? selectedChild;
+  final Map<String, dynamic>? analysisData;
+  final String? drawingId; // DB에서 조회할 경우
   
-  // 테스트용 더미 데이터
-  final Map<String, dynamic> analysisData;
-  AnalysisResultScreen({
+  const AnalysisResultScreen({
     super.key,
     this.imageFile,
     this.selectedChild,
-    Map<String, dynamic>? analysisData,
-  }) : analysisData = analysisData ?? _defaultAnalysisData;
+    this.analysisData,
+    this.drawingId,
+  });
+
+  @override
+  State<AnalysisResultScreen> createState() => _AnalysisResultScreenState();
+}
+
+class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
+  final DrawingsService _drawingsService = DrawingsService();
+  Map<String, dynamic>? _analysisData;
+  String? _imageUrl;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnalysisData();
+  }
+
+  Future<void> _loadAnalysisData() async {
+    try {
+      print('분석 결과 화면 초기화');
+      
+      // 이미 분석 데이터가 전달된 경우
+      if (widget.analysisData != null) {
+        print('전달받은 분석 데이터 사용');
+        setState(() {
+          _analysisData = widget.analysisData;
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      // drawingId로 DB에서 조회
+      if (widget.drawingId != null) {
+        print('DB에서 분석 데이터 조회: ${widget.drawingId}');
+        final drawing = await _drawingsService.getDrawing(widget.drawingId!);
+        
+        if (drawing != null) {
+          print('DB 조회 성공');
+          setState(() {
+            _analysisData = drawing.analysisResult;
+            _imageUrl = drawing.imageUrl;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+      
+      // 데이터가 없으면 기본 데이터 사용
+      print('기본 분석 데이터 사용');
+      setState(() {
+        _analysisData = _defaultAnalysisData;
+        _isLoading = false;
+      });
+      
+    } catch (e) {
+      print('분석 결과 로드 에러: $e');
+      setState(() {
+        _errorMessage = '분석 결과를 불러오는 중 오류가 발생했습니다.';
+        _analysisData = _defaultAnalysisData;
+        _isLoading = false;
+      });
+    }
+  }
 
   // 테스트용 기본 분석 데이터
   static final Map<String, dynamic> _defaultAnalysisData = {
@@ -39,7 +105,50 @@ class AnalysisResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final childName = selectedChild?.name ?? '아이';
+    final childName = widget.selectedChild?.name ?? '아이';
+    
+    // 로딩 중
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppTheme.textDark),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text(
+            '분석 결과',
+            style: TextStyle(
+              color: AppTheme.textDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    // 에러 메시지 표시
+    if (_errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage!),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _errorMessage = null;
+        });
+      });
+    }
+    
+    final analysisData = _analysisData ?? _defaultAnalysisData;
     
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -79,16 +188,7 @@ class AnalysisResultScreen extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
-                child: (imageFile != null && imageFile!.existsSync())
-                    ? Image.file(
-                        imageFile!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          print('이미지 로드 에러: $error');
-                          return _buildImagePlaceholder();
-                        },
-                      )
-                    : _buildImagePlaceholder(),
+                child: _buildImage(),
               ),
             ),
             
@@ -98,23 +198,23 @@ class AnalysisResultScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 감정 분석 카드
-                  _buildEmotionCard(childName),
+                  _buildEmotionCard(childName, analysisData),
                   const SizedBox(height: 24),
                   
                   // 요약 카드
-                  _buildSummaryCard(),
+                  _buildSummaryCard(analysisData),
                   const SizedBox(height: 24),
                   
                   // 해석 카드
-                  _buildInterpretationCard(),
+                  _buildInterpretationCard(analysisData),
                   const SizedBox(height: 24),
                   
                   // 분석 상세 정보
-                  _buildAnalysisDetails(),
+                  _buildAnalysisDetails(analysisData),
                   const SizedBox(height: 24),
                   
                   // 부모 가이드 카드
-                  _buildParentGuideCard(),
+                  _buildParentGuideCard(analysisData),
                   const SizedBox(height: 32),
                   
                   // 목록으로 돌아가기 버튼
@@ -152,7 +252,7 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmotionCard(String childName) {
+  Widget _buildEmotionCard(String childName, Map<String, dynamic> analysisData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -217,7 +317,7 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(Map<String, dynamic> analysisData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -286,7 +386,7 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInterpretationCard() {
+  Widget _buildInterpretationCard(Map<String, dynamic> analysisData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -332,7 +432,7 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAnalysisDetails() {
+  Widget _buildAnalysisDetails(Map<String, dynamic> analysisData) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -499,6 +599,47 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
+  /// 이미지 표시 (로컬 파일 또는 네트워크 이미지)
+  Widget _buildImage() {
+    // 로컬 파일이 있으면 우선 사용
+    if (widget.imageFile != null && widget.imageFile!.existsSync()) {
+      return Image.file(
+        widget.imageFile!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('이미지 로드 에러: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+    
+    // 네트워크 이미지 URL이 있으면 사용
+    if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+      return Image.network(
+        _imageUrl!,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('네트워크 이미지 로드 에러: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+    
+    // 이미지가 없으면 플레이스홀더
+    return _buildImagePlaceholder();
+  }
+
   Widget _buildImagePlaceholder() {
     return Container(
       color: AppTheme.primary.withOpacity(0.1),
@@ -523,7 +664,7 @@ class AnalysisResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildParentGuideCard() {
+  Widget _buildParentGuideCard(Map<String, dynamic> analysisData) {
     final guides = analysisData['parentGuide'] as List<dynamic>? ?? [];
     
     return Container(

@@ -51,6 +51,9 @@ dependencies:
   
   # 환경 변수 관리
   flutter_dotenv: ^5.1.0
+  
+  # Gemini AI 연동
+  google_generative_ai: ^0.2.2
 
 dev_dependencies:
   flutter_test:
