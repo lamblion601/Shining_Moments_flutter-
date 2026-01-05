@@ -24,11 +24,12 @@ class GeminiService {
       }
       
       print('🔑 Gemini API 초기화 시작...');
+      // 최신 패키지(0.4.7)에서는 간단한 모델명 사용
       _model = GenerativeModel(
         model: 'gemini-1.5-flash',
         apiKey: apiKey,
       );
-      print('✅ Gemini API 초기화 완료');
+      print('✅ Gemini API 초기화 완료 (모델: gemini-1.5-flash)');
     } catch (e) {
       print('❌ Gemini API 초기화 에러: $e');
       rethrow;
