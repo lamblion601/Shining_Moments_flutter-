@@ -81,7 +81,8 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
       }
       
       if (widget.selectedChild == null || widget.selectedChild!.childId == null) {
-        throw Exception('아이 정보가 없습니다.');
+        print('⚠️ 경고: 아이 정보가 없습니다. 테스트 모드로 진행합니다.');
+        throw Exception('아이 정보가 없습니다.\n먼저 아이 프로필을 등록해주세요.');
       }
       
       final user = Supabase.instance.client.auth.currentUser;
@@ -198,29 +199,38 @@ class _AnalysisLoadingScreenState extends State<AnalysisLoadingScreen>
         return;
       }
       
-      // 에러 메시지 표시
+      // 에러 메시지 표시 (initState 완료 후에 실행)
       String errorMessage = '분석 중 오류가 발생했습니다.';
       
-      if (e.toString().contains('GEMINI_API_KEY')) {
+      if (e.toString().contains('아이 정보')) {
+        errorMessage = '아이 정보가 없습니다.\n먼저 아이 프로필을 등록해주세요.';
+      } else if (e.toString().contains('GEMINI_API_KEY')) {
         errorMessage = 'Gemini API 키가 설정되지 않았습니다.\n.env 파일에 GEMINI_API_KEY를 추가해주세요.';
       } else if (e.toString().contains('Storage')) {
         errorMessage = '이미지 업로드에 실패했습니다.';
       } else if (e.toString().contains('로그인')) {
         errorMessage = '로그인이 필요합니다.';
+      } else if (e.toString().contains('시간 초과')) {
+        errorMessage = 'API 호출 시간이 초과되었습니다.\n네트워크 연결을 확인하고 다시 시도해주세요.';
       }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: '확인',
-            textColor: Colors.white,
-            onPressed: () {},
+      // WidgetsBinding을 사용하여 initState 완료 후에 SnackBar 표시
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
           ),
-        ),
-      );
+        );
+      });
       
       // 업로드된 이미지가 있다면 삭제 (클린업)
       if (imageUrl != null) {

@@ -19,6 +19,44 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _isLoading = false;
   final ChildrenService _childrenService = ChildrenService();
   Child? _selectedChild;
+  List<Child> _children = [];
+  bool _isLoadingChildren = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChildren();
+  }
+
+  /// 아이 목록 로드
+  Future<void> _loadChildren() async {
+    try {
+      print('아이 목록 로드 시작');
+      final children = await _childrenService.getChildren();
+      
+      if (mounted) {
+        setState(() {
+          _children = children;
+          _isLoadingChildren = false;
+          
+          // 첫 번째 아이를 기본 선택
+          if (_children.isNotEmpty) {
+            _selectedChild = _children[0];
+            print('기본 선택된 아이: ${_selectedChild?.name}');
+          } else {
+            print('⚠️ 등록된 아이가 없습니다.');
+          }
+        });
+      }
+    } catch (e) {
+      print('아이 목록 로드 에러: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingChildren = false;
+        });
+      }
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -38,13 +76,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
           _pickedImage = image;
           _isLoading = false;
         });
-        
-        // TODO: 이미지 분석 페이지로 이동
-        // Navigator.of(context).push(
-        //   MaterialPageRoute(
-        //     builder: (context) => AnalysisScreen(image: image),
-        //   ),
-        // );
       } else {
         setState(() {
           _isLoading = false;
@@ -67,7 +98,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   void _navigateToAnalysisLoading() {
-    print('그림 분석중 버튼 클릭 - 분석 로딩 페이지로 이동');
+    print('그림 분석 시작');
+    
+    // 아이가 선택되지 않았을 때 경고
+    if (_selectedChild == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('아이를 선택해주세요.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     
     // 이미지 파일이 있으면 사용하고, 없으면 null로 처리
     File? testImageFile;
@@ -75,6 +118,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
     if (_pickedImage != null) {
       testImageFile = File(_pickedImage!.path);
     }
+    
+    print('선택된 아이: ${_selectedChild?.name}');
+    print('이미지 파일: ${testImageFile?.path ?? "없음"}');
     
     // 분석 로딩 페이지로 이동
     Navigator.of(context).push(
@@ -271,7 +317,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 40),
+          const SizedBox(height: 20),
+          
+          // 아이 선택 카드
+          _buildChildSelector(),
+          
+          const SizedBox(height: 32),
           // 아이콘
           Container(
             width: 120,
@@ -453,12 +504,156 @@ class _CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
+  /// 아이 선택 위젯
+  Widget _buildChildSelector() {
+    if (_isLoadingChildren) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('아이 목록 로딩 중...'),
+          ],
+        ),
+      );
+    }
+
+    if (_children.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.orange[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.orange[200]!),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.child_care, color: Colors.orange[700], size: 32),
+            const SizedBox(height: 8),
+            Text(
+              '등록된 아이가 없습니다',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange[900],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '프로필 > 아이 관리에서 아이를 등록해주세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.orange[700],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.child_care, color: AppTheme.primaryHover, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                '분석할 아이 선택',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<Child>(
+            value: _selectedChild,
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.primaryHover, width: 2),
+              ),
+            ),
+            items: _children.map((child) {
+              return DropdownMenuItem<Child>(
+                value: child,
+                child: Row(
+                  children: [
+                    Text(
+                      child.name ?? '이름 없음',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (child.age != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '(만 ${child.age}세)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (Child? newValue) {
+              setState(() {
+                _selectedChild = newValue;
+                print('아이 선택됨: ${_selectedChild?.name}');
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImagePreview() {
     return Column(
       children: [
+        // 아이 선택 (이미지 미리보기 위에 표시)
+        Container(
+          margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: _buildChildSelector(),
+        ),
+        const SizedBox(height: 16),
         Expanded(
           child: Container(
-            margin: const EdgeInsets.all(24),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
@@ -532,6 +727,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       print('AI 분석하기 버튼 클릭');
+                      
+                      // 아이가 선택되지 않았을 때 경고
+                      if (_selectedChild == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('아이를 선택해주세요.'),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
+                      
                       // 분석 로딩 페이지로 이동
                       Navigator.of(context).push(
                         MaterialPageRoute(
