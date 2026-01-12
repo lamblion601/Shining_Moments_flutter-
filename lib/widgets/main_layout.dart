@@ -31,7 +31,6 @@ class _MainLayoutState extends State<MainLayout> {
   final List<Widget> _screens = [
     const HomeScreenContent(), // 홈
     const HistoryScreenContent(), // 히스토리
-    const CoachingScreen(), // 코칭 (임시)
     const ProfileScreen(), // 설정
   ];
 
@@ -67,8 +66,7 @@ class _MainLayoutState extends State<MainLayout> {
             children: [
               _buildNavItem(Icons.home, '홈', 0),
               _buildNavItem(Icons.history, '히스토리', 1),
-              _buildNavItem(Icons.psychology, '코칭', 2),
-              _buildNavItem(Icons.settings, '설정', 3),
+              _buildNavItem(Icons.settings, '설정', 2),
             ],
           ),
         ),
@@ -108,52 +106,6 @@ class _MainLayoutState extends State<MainLayout> {
   }
 }
 
-/// 코칭 화면 (임시)
-class CoachingScreen extends StatelessWidget {
-  const CoachingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.psychology,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '코칭 화면',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '부모님을 위한 AI 코칭 기능이\n곧 제공될 예정입니다.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// 홈 화면의 실제 콘텐츠 (네비게이션 바 제외)
 class HomeScreenContent extends StatelessWidget {
