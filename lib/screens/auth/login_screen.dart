@@ -38,11 +38,11 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
 
-        // 로그인 성공 시 로그인 화면을 닫고 홈 화면으로 이동
+        // 로그인 성공 시 모든 화면을 제거하여 AuthWrapper가 홈 화면을 표시하도록 함
         print('로그인 성공! 홈 화면으로 이동합니다.');
         if (mounted) {
-          // 로그인 화면을 Navigator 스택에서 제거
-          Navigator.of(context).pop();
+          // 모든 화면을 제거하고 루트(AuthWrapper)로 돌아감
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
         
       } catch (e) {

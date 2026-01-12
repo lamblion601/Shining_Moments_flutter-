@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import '../home/home_screen.dart';
 
 class SignUpCompleteScreen extends StatelessWidget {
   const SignUpCompleteScreen({super.key});
@@ -312,13 +311,8 @@ class SignUpCompleteScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     print('서비스 시작하기 버튼 클릭');
-                    // 홈 화면으로 이동
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => const HomeScreen(),
-                      ),
-                      (route) => false,
-                    );
+                    // 모든 화면을 제거하고 루트(AuthWrapper)로 돌아가 홈 화면 표시
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
