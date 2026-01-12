@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 class StorageService {
   final SupabaseClient _supabase = Supabase.instance.client;
   static const String bucketName = 'drawings';
+  static const String profileBucketName = 'profiles'; // 프로필 이미지용 버킷
   
   /// Storage 버킷이 존재하는지 확인
   /// 버킷이 없으면 사용자에게 안내 메시지를 표시하도록 에러를 던짐
@@ -219,6 +220,101 @@ class StorageService {
     } catch (e) {
       print('이미지 URL 유효성 확인 에러: $e');
       return false;
+    }
+  }
+  
+  /// 프로필 이미지 업로드
+  /// userId와 childId, 타임스탬프를 조합하여 고유한 파일명 생성
+  Future<String> uploadProfileImage({
+    required File imageFile,
+    required String userId,
+    String? childId, // null이면 부모 프로필, 있으면 아이 프로필
+  }) async {
+    try {
+      print('📤 프로필 이미지 업로드 시작: userId=$userId, childId=$childId');
+      print('📁 파일 경로: ${imageFile.path}');
+      
+      // 파일이 존재하는지 확인
+      if (!await imageFile.exists()) {
+        throw Exception('이미지 파일이 존재하지 않습니다: ${imageFile.path}');
+      }
+      
+      final fileSize = await imageFile.length();
+      print('📊 파일 크기: ${(fileSize / 1024).toStringAsFixed(1)} KB');
+      
+      // 파일 크기 제한 (5MB - 프로필은 더 작게)
+      const maxFileSize = 5 * 1024 * 1024; // 5MB
+      if (fileSize > maxFileSize) {
+        throw Exception(
+          '파일 크기가 너무 큽니다.\n'
+          '현재: ${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB\n'
+          '최대: 5 MB'
+        );
+      }
+      
+      // 고유한 파일명 생성
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = path.extension(imageFile.path).toLowerCase();
+      final fileName = childId != null
+          ? 'child_${userId}_${childId}_$timestamp$extension'
+          : 'user_${userId}_$timestamp$extension';
+      print('📝 파일명: $fileName');
+      
+      // drawings 버킷 사용 (기존 버킷 활용)
+      print('🚀 Supabase Storage 업로드 중...');
+      final uploadPath = await _supabase.storage
+          .from(bucketName) // drawings 버킷 사용
+          .upload(
+            fileName,
+            imageFile,
+            fileOptions: const FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+            ),
+          );
+      
+      print('✅ 업로드 완료: $uploadPath');
+      
+      // Public URL 생성
+      final publicUrl = _supabase.storage
+          .from(bucketName)
+          .getPublicUrl(fileName);
+      
+      print('🔗 Public URL: $publicUrl');
+      return publicUrl;
+    } catch (e, stackTrace) {
+      print('❌ 프로필 이미지 업로드 에러: $e');
+      print('📋 에러 스택: $stackTrace');
+      
+      throw Exception('프로필 이미지 업로드 실패: ${e.toString()}');
+    }
+  }
+  
+  /// 프로필 이미지 삭제
+  Future<void> deleteProfileImage(String imageUrl) async {
+    try {
+      print('프로필 이미지 삭제 시작: $imageUrl');
+      
+      // URL에서 파일명 추출
+      final uri = Uri.parse(imageUrl);
+      final pathSegments = uri.pathSegments;
+      
+      if (pathSegments.isEmpty) {
+        throw Exception('잘못된 이미지 URL입니다.');
+      }
+      
+      final fileName = pathSegments.last;
+      print('파일명: $fileName');
+      
+      // Supabase Storage에서 삭제
+      await _supabase.storage
+          .from(bucketName) // drawings 버킷 사용
+          .remove([fileName]);
+      
+      print('프로필 이미지 삭제 완료');
+    } catch (e) {
+      print('프로필 이미지 삭제 에러: $e');
+      rethrow;
     }
   }
 }

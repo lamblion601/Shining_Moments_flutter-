@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/children_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/storage_service.dart';
 
 /// 아이 프로필 화면 (추가/수정)
 class ChildProfileScreen extends StatefulWidget {
@@ -22,10 +25,16 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   final _nameController = TextEditingController();
   final ChildrenService _childrenService = ChildrenService();
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   DateTime? _selectedBirthDate;
   String? _selectedGender;
   bool _isLoading = false;
+  
+  // 프로필 이미지
+  File? _selectedImageFile;
+  String? _currentImageUrl;
   
   // 성향 목록 (traits 테이블에서 가져옴)
   List<String> _availablePersonalities = [];
@@ -44,6 +53,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
       _nameController.text = widget.child!.name ?? '';
       _selectedBirthDate = widget.child!.birthDate;
       _selectedGender = widget.child!.gender;
+      _currentImageUrl = widget.child!.profileImageUrl;
       
       // 기존 성향 데이터 로드 (List<String>에서 가져옴)
       if (widget.child!.personality.isNotEmpty) {
@@ -93,6 +103,102 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImageFile = File(pickedFile.path);
+        });
+        print('프로필 이미지 선택: ${pickedFile.path}');
+      }
+    } catch (e) {
+      print('이미지 선택 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImageFile = File(pickedFile.path);
+        });
+        print('프로필 사진 촬영: ${pickedFile.path}');
+      }
+    } catch (e) {
+      print('사진 촬영 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('사진 촬영 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showImageSourceDialog() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('갤러리에서 선택'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('사진 촬영'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _takePhoto();
+              },
+            ),
+            if (_selectedImageFile != null || _currentImageUrl != null)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('프로필 이미지 제거', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _selectedImageFile = null;
+                    _currentImageUrl = null;
+                  });
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _selectBirthDate() async {
@@ -174,6 +280,21 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
       // 선택된 성향을 List<String>으로 변환
       final personalityList = _selectedPersonalities.toList();
       
+      // 프로필 이미지 업로드 (새로 선택한 이미지가 있는 경우)
+      String? profileImageUrl = _currentImageUrl;
+      if (_selectedImageFile != null) {
+        final user = _authService.currentUser;
+        if (user != null) {
+          print('프로필 이미지 업로드 시작...');
+          profileImageUrl = await _storageService.uploadProfileImage(
+            imageFile: _selectedImageFile!,
+            userId: user.id,
+            childId: widget.child?.childId,
+          );
+          print('프로필 이미지 업로드 완료: $profileImageUrl');
+        }
+      }
+      
       if (widget.child == null) {
         // 추가 모드
         print('아이 추가 시작: ${_nameController.text}, 성향: $personalityList');
@@ -182,6 +303,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
           birthDate: _selectedBirthDate!,
           gender: _selectedGender!,
           personality: personalityList.isEmpty ? null : personalityList,
+          profileImageUrl: profileImageUrl,
         );
         print('아이 추가 완료');
         if (mounted) {
@@ -202,6 +324,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
           birthDate: _selectedBirthDate,
           gender: _selectedGender,
           personality: personalityList.isEmpty ? null : personalityList,
+          profileImageUrl: profileImageUrl,
         );
         print('아이 정보 수정 완료');
         if (mounted) {
@@ -342,6 +465,67 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 프로필 이미지
+                    Center(
+                      child: GestureDetector(
+                        onTap: _showImageSourceDialog,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[200],
+                            border: Border.all(
+                              color: AppTheme.primaryHover,
+                              width: 3,
+                            ),
+                          ),
+                          child: _selectedImageFile != null
+                              ? ClipOval(
+                                  child: Image.file(
+                                    _selectedImageFile!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : _currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        _currentImageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Icon(
+                                            Icons.child_care,
+                                            size: 50,
+                                            color: AppTheme.textSecondary,
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.child_care,
+                                      size: 50,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _showImageSourceDialog,
+                        icon: const Icon(Icons.camera_alt, size: 18),
+                        label: Text(
+                          (_selectedImageFile != null || _currentImageUrl != null)
+                              ? '프로필 이미지 변경'
+                              : '프로필 이미지 추가',
+                          style: TextStyle(
+                            color: AppTheme.primaryHover,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     // 이름 입력
                     TextFormField(
                       controller: _nameController,
