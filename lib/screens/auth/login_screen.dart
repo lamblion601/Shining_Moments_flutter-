@@ -38,8 +38,12 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
 
-        // 로그인 성공 시 자동으로 홈 화면으로 이동 (main.dart의 AuthWrapper가 처리)
+        // 로그인 성공 시 로그인 화면을 닫고 홈 화면으로 이동
         print('로그인 성공! 홈 화면으로 이동합니다.');
+        if (mounted) {
+          // 로그인 화면을 Navigator 스택에서 제거
+          Navigator.of(context).pop();
+        }
         
       } catch (e) {
         // 에러 처리
