@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // HTML 디자인에 맞춘 색상 정의
   static const Color primary = Color(0xFFFFE8A3); // #ffe8a3
-  static const Color primaryHover = Color(0xFFFFE085); // #ffe085
+  static const Color primaryHover = Color(0xFFFBBC04); // #fbbc04
   static const Color backgroundColor = Color(0xFFF8F8F5); // #f8f8f5
   static const Color textDark = Color(0xFF332F21); // #332f21
   static const Color textLight = Color(0xFFF1EEE6); // #f1eee6
   
   // 기존 색상들 (호환성 유지)
   static const Color lightYellow = Color(0xFFFFE8A3);
-  static const Color lightOrange = Color(0xFFFFE085);
+  static const Color lightOrange = Color(0xFFFBBC04);
   static const Color lightBlue = Color(0xFFB3E5FC);
   static const Color lightPurple = Color(0xFFE1BEE7);
   static const Color lightGreen = Color(0xFFC8E6C9);
