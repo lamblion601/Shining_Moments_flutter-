@@ -820,23 +820,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // 타이틀
-          const Text(
-            '그림 분석하기',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
           // 설명
           Text(
-            '아이의 그림을 찍어서 숨겨진 마음을 알아보세요',
+            '아이의 반짝이는 순간들을 통해\n마음과 생각을 들여다 보세요',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textDark.withOpacity(0.8),
+              fontSize: 16,
+              color: AppTheme.textDark.withOpacity(0.9),
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 24),
@@ -861,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               child: const Text(
-                '시작하기',
+                'AI로 그림 분석 시작',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
