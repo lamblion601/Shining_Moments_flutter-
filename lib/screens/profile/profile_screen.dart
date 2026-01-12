@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/children_service.dart';
+import '../../services/storage_service.dart';
 import '../landing/landing_screen.dart';
 import '../children/child_profile_screen.dart';
 
@@ -16,8 +19,12 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final ChildrenService _childrenService = ChildrenService();
+  final StorageService _storageService = StorageService();
+  final ImagePicker _imagePicker = ImagePicker();
   List<Child> _children = [];
   bool _isLoadingChildren = true;
+  String? _userProfileImageUrl;
+  File? _selectedUserImage;
 
   String _getUserName() {
     final user = _authService.currentUser;
@@ -62,6 +69,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _isLoadingChildren = false;
       });
+    }
+  }
+
+  Future<void> _pickUserProfileImage() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('갤러리에서 선택'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                try {
+                  final XFile? pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 800,
+                    maxHeight: 800,
+                    imageQuality: 85,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      _selectedUserImage = File(pickedFile.path);
+                    });
+                    await _uploadUserProfileImage();
+                  }
+                } catch (e) {
+                  print('이미지 선택 에러: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('사진 촬영'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                try {
+                  final XFile? pickedFile = await _imagePicker.pickImage(
+                    source: ImageSource.camera,
+                    maxWidth: 800,
+                    maxHeight: 800,
+                    imageQuality: 85,
+                  );
+                  if (pickedFile != null) {
+                    setState(() {
+                      _selectedUserImage = File(pickedFile.path);
+                    });
+                    await _uploadUserProfileImage();
+                  }
+                } catch (e) {
+                  print('사진 촬영 에러: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('사진 촬영 중 오류가 발생했습니다: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadUserProfileImage() async {
+    if (_selectedUserImage == null) return;
+
+    try {
+      final user = _authService.currentUser;
+      if (user == null) return;
+
+      print('부모 프로필 이미지 업로드 시작...');
+      final imageUrl = await _storageService.uploadProfileImage(
+        imageFile: _selectedUserImage!,
+        userId: user.id,
+        childId: null, // 부모 프로필
+      );
+      
+      setState(() {
+        _userProfileImageUrl = imageUrl;
+      });
+      
+      print('부모 프로필 이미지 업로드 완료: $imageUrl');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('프로필 이미지가 변경되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('프로필 이미지 업로드 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 업로드 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -181,48 +303,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         // 프로필 사진
-        Stack(
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.blue[100],
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 4,
-                ),
-              ),
-              child: const Icon(
-                Icons.person,
-                size: 60,
-                color: AppTheme.textDark,
-              ),
-            ),
-            // 편집 아이콘
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 36,
-                height: 36,
+        GestureDetector(
+          onTap: _pickUserProfileImage,
+          child: Stack(
+            children: [
+              Container(
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  color: Colors.blue[100],
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white,
-                    width: 3,
+                    width: 4,
                   ),
                 ),
-                child: const Icon(
-                  Icons.edit,
-                  size: 18,
-                  color: AppTheme.textDark,
+                child: _selectedUserImage != null
+                    ? ClipOval(
+                        child: Image.file(
+                          _selectedUserImage!,
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : _userProfileImageUrl != null && _userProfileImageUrl!.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              _userProfileImageUrl!,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: AppTheme.textDark,
+                                );
+                              },
+                            ),
+                          )
+                        : const Icon(
+                            Icons.person,
+                            size: 60,
+                            color: AppTheme.textDark,
+                          ),
+              ),
+              // 편집 아이콘
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 3,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    size: 18,
+                    color: AppTheme.textDark,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         // 사용자 이름
@@ -380,11 +530,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: avatarColor.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.child_care,
-                size: 50,
-                color: avatarColor,
-              ),
+              child: child.profileImageUrl != null && child.profileImageUrl!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        child.profileImageUrl!,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.child_care,
+                            size: 50,
+                            color: avatarColor,
+                          );
+                        },
+                      ),
+                    )
+                  : Icon(
+                      Icons.child_care,
+                      size: 50,
+                      color: avatarColor,
+                    ),
             ),
             const SizedBox(width: 16),
             // 아이 정보
