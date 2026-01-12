@@ -10,6 +10,7 @@ class AnalysisResultScreen extends StatefulWidget {
   final Child? selectedChild;
   final Map<String, dynamic>? analysisData;
   final String? drawingId; // DB에서 조회할 경우
+  final String? imageUrl; // 네트워크 이미지 URL
   
   const AnalysisResultScreen({
     super.key,
@@ -17,6 +18,7 @@ class AnalysisResultScreen extends StatefulWidget {
     this.selectedChild,
     this.analysisData,
     this.drawingId,
+    this.imageUrl,
   });
 
   @override
@@ -45,6 +47,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         print('전달받은 분석 데이터 사용');
         setState(() {
           _analysisData = widget.analysisData;
+          _imageUrl = widget.imageUrl; // 네트워크 이미지 URL
           _isLoading = false;
         });
         return;

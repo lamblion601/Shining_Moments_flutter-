@@ -8,6 +8,7 @@ import '../capture/capture_screen.dart';
 import '../profile/profile_screen.dart';
 import '../children/child_profile_screen.dart';
 import '../analysis/analysis_result_screen.dart';
+import '../history/history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1203,7 +1204,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
-        if (index == 3) {
+        if (index == 1) {
+          // 히스토리 탭 클릭 시 History 화면으로 이동
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const HistoryScreen(),
+            ),
+          );
+        } else if (index == 3) {
           // 설정 탭 클릭 시 프로필 화면으로 이동
           Navigator.of(context).push(
             MaterialPageRoute(
