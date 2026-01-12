@@ -359,11 +359,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Colors.blue[100],
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.child_care,
-                          color: AppTheme.textDark,
-                          size: 24,
-                        ),
+                        child: child.profileImageUrl != null && 
+                               child.profileImageUrl!.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  child.profileImageUrl!,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(
+                                      Icons.child_care,
+                                      color: AppTheme.textDark,
+                                      size: 24,
+                                    );
+                                  },
+                                ),
+                              )
+                            : const Icon(
+                                Icons.child_care,
+                                color: AppTheme.textDark,
+                                size: 24,
+                              ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -609,11 +626,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.blue[100],
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.child_care,
-                        color: AppTheme.textDark,
-                        size: 32,
-                      ),
+                      child: selectedChild.profileImageUrl != null && 
+                             selectedChild.profileImageUrl!.isNotEmpty
+                          ? ClipOval(
+                              child: Image.network(
+                                selectedChild.profileImageUrl!,
+                                width: 56,
+                                height: 56,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.child_care,
+                                    color: AppTheme.textDark,
+                                    size: 32,
+                                  );
+                                },
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  );
+                                },
+                              ),
+                            )
+                          : const Icon(
+                              Icons.child_care,
+                              color: AppTheme.textDark,
+                              size: 32,
+                            ),
                     ),
                     // 온라인 상태 표시
                     Positioned(
