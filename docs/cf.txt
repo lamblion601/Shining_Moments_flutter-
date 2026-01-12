@@ -1,0 +1,42 @@
+구글폰트적용
+
+@https://nextjs.org/docs/app/building-your-application/optimizing/fonts
+
+이 문서를 참고하여 구글 폰트의 '{사용하고 싶은 폰트 이름}' 폰트를 웹 사이트에 적용 시켜줘
+
+
+
+oz태그 .
+@https://nextjs.org/docs/app/building-your-application/optimizing/metadata
+
+이 문서를 참고하여 메타 데이터의 title, descriptrion, Open Graph를 모두 채워줘
+Open Graph는 @public  폴더의 '{lamblion601}'을 사용해줘
+
+
+
+
+슈퍼베이스에서 테이블 만들기
+supabase sql editor로 테이블을 생성해야합니다. sql문을 작성하세요.
+- RLS는 적용하지 마세요.
+
+멘토링때 알려주신 쳇 내용
+1. React native 환경 설정
+2. npx expo start
+3. npx create-expo-app
+4. https://developer.android.com/studio?hl=ko
+5. ANDROID_HOME
+6. where Sdk
+7. where Android
+8. 역슬래쉬
+9. Get-ChildItem -Path Env:
+
+10. https://docs.expo.dev/get-started/set-up-your-environment/?
+11. platform=android&device=simulated
+12. platform-tools
+13. adb --version
+시스템변수 path에서 추가
+C:\Users\USER\AppData\Local\Android\Sdk\platform-tools
+
+리엑트네이티브
+14. npx expo start
+15. https://docs.expo.dev/get-started/set-up-your-environment/?platform=android&device=simulated
