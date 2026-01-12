@@ -8,7 +8,6 @@ import '../capture/capture_screen.dart';
 import '../profile/profile_screen.dart';
 import '../children/child_profile_screen.dart';
 import '../analysis/analysis_result_screen.dart';
-import '../history/history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +17,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
   final AuthService _authService = AuthService();
   final ChildrenService _childrenService = ChildrenService();
   List<Child> _children = [];
@@ -234,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 32),
                     // 최근 분석 기록
                     _buildRecentRecords(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 80), // 하단 네비게이션 바 공간
                   ],
                 ),
               ),
@@ -242,7 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -1164,83 +1161,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: AppTheme.textSecondary,
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, '홈', 0),
-              _buildNavItem(Icons.history, '히스토리', 1),
-              _buildNavItem(Icons.psychology, '코칭', 2),
-              _buildNavItem(Icons.settings, '설정', 3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        if (index == 1) {
-          // 히스토리 탭 클릭 시 History 화면으로 이동
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const HistoryScreen(),
-            ),
-          );
-        } else if (index == 3) {
-          // 설정 탭 클릭 시 프로필 화면으로 이동
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const ProfileScreen(),
-            ),
-          );
-        } else {
-          setState(() {
-            _currentIndex = index;
-          });
-          print('$label 탭 클릭');
-        }
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? AppTheme.primaryHover : AppTheme.textSecondary,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? AppTheme.primaryHover : AppTheme.textSecondary,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
           ),
         ],
       ),

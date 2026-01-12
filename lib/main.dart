@@ -6,7 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing/landing_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'widgets/main_layout.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,9 +73,9 @@ class _AuthWrapper extends StatelessWidget {
         
         print('인증 상태 확인: ${session != null ? "로그인됨" : "로그인 안됨"}');
         
-        // 세션이 있으면 홈 화면, 없으면 랜딩 화면
+        // 세션이 있으면 메인 레이아웃(홈 화면), 없으면 랜딩 화면
         if (session != null) {
-          return const HomeScreen();
+          return const MainLayout();
         } else {
           return const LandingScreen();
         }
