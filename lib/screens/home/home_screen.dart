@@ -31,13 +31,13 @@ class _HomeScreenState extends State<HomeScreen> {
       // user_metadata에서 이름 가져오기
       final name = user.userMetadata?['name'] as String?;
       if (name != null && name.isNotEmpty) {
-        return '$name님';
+        return '$name';
       }
       // 이메일에서 이름 추출
       final email = user.email ?? '';
       if (email.isNotEmpty) {
         final emailName = email.split('@')[0];
-        return '$emailName님';
+        return '$emailName';
       }
     }
     return '사용자님';

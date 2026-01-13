@@ -126,3 +126,4 @@ supabase db push
 - nullable이므로 프로필 이미지가 없어도 아이 정보를 저장할 수 있습니다
 
 
+

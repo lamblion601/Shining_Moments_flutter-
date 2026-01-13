@@ -4,6 +4,72 @@ import '../screens/home/home_screen.dart';
 import '../screens/history/history_screen.dart';
 import '../screens/profile/profile_screen.dart';
 
+/// MainLayout의 상태를 전역적으로 접근할 수 있게 하는 InheritedWidget
+class MainLayoutProvider extends InheritedWidget {
+  final MainLayoutController controller;
+
+  const MainLayoutProvider({
+    super.key,
+    required this.controller,
+    required super.child,
+  });
+
+  static MainLayoutController? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<MainLayoutProvider>()?.controller;
+  }
+
+  @override
+  bool updateShouldNotify(MainLayoutProvider oldWidget) {
+    return controller != oldWidget.controller;
+  }
+}
+
+/// MainLayout의 탭 변경을 제어하는 컨트롤러
+class MainLayoutController extends ChangeNotifier {
+  int _currentIndex = 0;
+
+  int get currentIndex => _currentIndex;
+
+  void changeTab(int index) {
+    if (_currentIndex != index) {
+      _currentIndex = index;
+      notifyListeners();
+      print('탭 변경: $_currentIndex');
+    }
+  }
+}
+
+/// MainLayout의 탭을 변경하는 유틸리티 함수
+/// 각 화면에서 사용할 수 있습니다
+class MainLayoutHelper {
+  /// 현재 화면에서 MainLayout의 탭을 변경합니다
+  /// [context]: BuildContext
+  /// [index]: 변경할 탭 인덱스 (0: 홈, 1: 히스토리, 2: 프로필)
+  static void changeTab(BuildContext context, int index) {
+    final controller = MainLayoutProvider.of(context);
+    if (controller != null) {
+      controller.changeTab(index);
+    } else {
+      print('MainLayoutProvider를 찾을 수 없습니다. MainLayout 안에서만 사용할 수 있습니다.');
+    }
+  }
+
+  /// 홈 화면으로 이동
+  static void goToHome(BuildContext context) {
+    changeTab(context, 0);
+  }
+
+  /// 히스토리 화면으로 이동
+  static void goToHistory(BuildContext context) {
+    changeTab(context, 1);
+  }
+
+  /// 프로필 화면으로 이동
+  static void goToProfile(BuildContext context) {
+    changeTab(context, 2);
+  }
+}
+
 /// 앱의 메인 레이아웃 (하단 네비게이션 바 포함)
 /// 모든 주요 화면을 관리하는 메인 컨테이너
 class MainLayout extends StatefulWidget {
@@ -19,12 +85,29 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
+  late MainLayoutController _controller;
   late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _controller = MainLayoutController();
+    _controller._currentIndex = widget.initialIndex;
+    _controller.addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTabChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    setState(() {
+      _currentIndex = _controller.currentIndex;
+    });
   }
 
   // 각 탭에 해당하는 화면들
@@ -36,12 +119,15 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+    return MainLayoutProvider(
+      controller: _controller,
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
+        bottomNavigationBar: _buildBottomNavBar(),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -78,9 +164,7 @@ class _MainLayoutState extends State<MainLayout> {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
+        _controller.changeTab(index);
         print('$label 탭 클릭 (index: $index)');
       },
       child: Column(

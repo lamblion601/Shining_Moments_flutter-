@@ -12,3 +12,4 @@ COMMENT ON COLUMN children.profile_image_url IS '아이 프로필 이미지 URL 
 -- CREATE INDEX IF NOT EXISTS idx_children_profile_image ON children(profile_image_url) WHERE profile_image_url IS NOT NULL;
 
 
+
