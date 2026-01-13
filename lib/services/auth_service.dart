@@ -131,6 +131,34 @@ class AuthService {
     print('로그아웃 완료');
   }
 
+  // 사용자 메타데이터 업데이트 (이름 등)
+  Future<void> updateUserMetadata({String? name}) async {
+    try {
+      print('사용자 메타데이터 업데이트 시도: name=$name');
+      
+      final updates = <String, dynamic>{};
+      if (name != null) {
+        updates['name'] = name;
+      }
+      
+      if (updates.isEmpty) {
+        print('업데이트할 데이터가 없습니다.');
+        return;
+      }
+      
+      final response = await _supabase.auth.updateUser(
+        UserAttributes(
+          data: updates,
+        ),
+      );
+      
+      print('사용자 메타데이터 업데이트 완료: ${response.user?.userMetadata}');
+    } catch (e) {
+      print('사용자 메타데이터 업데이트 에러: $e');
+      rethrow;
+    }
+  }
+
   // 현재 사용자 정보
   User? get currentUser => _supabase.auth.currentUser;
 
