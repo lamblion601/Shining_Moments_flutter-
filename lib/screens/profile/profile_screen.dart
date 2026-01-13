@@ -335,6 +335,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               height: 120,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
+                                // 네트워크 이미지 로드 실패 시 기본 이미지 표시
+                                return ClipOval(
+                                  child: Image.asset(
+                                    'assets/images/default_profile.png',
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(
+                                        Icons.person,
+                                        size: 60,
+                                        color: AppTheme.textDark,
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : ClipOval(
+                            child: Image.asset(
+                              'assets/images/default_profile.png',
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // 기본 이미지도 없을 경우 아이콘 표시
                                 return const Icon(
                                   Icons.person,
                                   size: 60,
@@ -342,11 +369,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 );
                               },
                             ),
-                          )
-                        : const Icon(
-                            Icons.person,
-                            size: 60,
-                            color: AppTheme.textDark,
                           ),
               ),
               // 편집 아이콘
@@ -539,6 +561,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 80,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
+                          // 네트워크 이미지 로드 실패 시 기본 이미지 표시
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              'assets/images/default_profile.png',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error2, stackTrace2) {
+                                return Icon(
+                                  Icons.child_care,
+                                  size: 50,
+                                  color: avatarColor,
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/default_profile.png',
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          // 기본 이미지도 없을 경우 아이콘 표시
                           return Icon(
                             Icons.child_care,
                             size: 50,
@@ -546,11 +597,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                    )
-                  : Icon(
-                      Icons.child_care,
-                      size: 50,
-                      color: avatarColor,
                     ),
             ),
             const SizedBox(width: 16),

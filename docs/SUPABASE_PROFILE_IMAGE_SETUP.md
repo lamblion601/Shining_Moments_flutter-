@@ -125,3 +125,4 @@ supabase db push
 - 형식: `https://[project].supabase.co/storage/v1/object/public/drawings/child_[userId]_[childId]_[timestamp].png`
 - nullable이므로 프로필 이미지가 없어도 아이 정보를 저장할 수 있습니다
 
+

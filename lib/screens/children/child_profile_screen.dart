@@ -493,6 +493,29 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                                         _currentImageUrl!,
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, error, stackTrace) {
+                                          // 네트워크 이미지 로드 실패 시 기본 이미지 표시
+                                          return ClipOval(
+                                            child: Image.asset(
+                                              'assets/images/default_profile.png',
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error2, stackTrace2) {
+                                                return const Icon(
+                                                  Icons.child_care,
+                                                  size: 50,
+                                                  color: AppTheme.textSecondary,
+                                                );
+                                              },
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  : ClipOval(
+                                      child: Image.asset(
+                                        'assets/images/default_profile.png',
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          // 기본 이미지도 없을 경우 아이콘 표시
                                           return const Icon(
                                             Icons.child_care,
                                             size: 50,
@@ -500,11 +523,6 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                                           );
                                         },
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.child_care,
-                                      size: 50,
-                                      color: AppTheme.textSecondary,
                                     ),
                         ),
                       ),
