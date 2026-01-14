@@ -3,6 +3,7 @@ import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/children_service.dart';
 import '../../services/drawings_service.dart';
+import '../../services/storage_service.dart';
 
 /// 그림 분석 결과 화면
 class AnalysisResultScreen extends StatefulWidget {
@@ -27,9 +28,12 @@ class AnalysisResultScreen extends StatefulWidget {
 
 class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   final DrawingsService _drawingsService = DrawingsService();
+  final StorageService _storageService = StorageService();
   Map<String, dynamic>? _analysisData;
   String? _imageUrl;
+  String? _currentDrawingId; // 삭제를 위한 drawing ID 저장
   bool _isLoading = true;
+  bool _isDeleting = false; // 삭제 진행 중 상태
   String? _errorMessage;
 
   @override
@@ -63,10 +67,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           setState(() {
             _analysisData = drawing.analysisResult;
             _imageUrl = drawing.imageUrl;
+            _currentDrawingId = drawing.id; // drawing ID 저장
             _isLoading = false;
           });
           return;
         }
+      }
+      
+      // widget.drawingId가 있지만 조회되지 않은 경우 ID만 저장
+      if (widget.drawingId != null) {
+        _currentDrawingId = widget.drawingId;
       }
       
       // 데이터가 없으면 기본 데이터 사용
@@ -219,6 +229,42 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                   // 부모 가이드 카드
                   _buildParentGuideCard(analysisData),
                   const SizedBox(height: 32),
+                  
+                  // 삭제 버튼 (drawingId가 있을 때만 표시)
+                  if (_currentDrawingId != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: _isDeleting ? null : _handleDelete,
+                        icon: _isDeleting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.delete_outline, size: 24),
+                        label: Text(
+                          _isDeleting ? '삭제 중...' : '분석 결과 삭제',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: Colors.red[300]!,
+                            width: 2,
+                          ),
+                          foregroundColor: Colors.red[600],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   
                   // 목록으로 돌아가기 버튼
                   SizedBox(
@@ -665,6 +711,126 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         ],
       ),
     );
+  }
+
+  /// 삭제 처리
+  Future<void> _handleDelete() async {
+    if (_currentDrawingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('삭제할 수 없는 항목입니다.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // 삭제 확인 다이얼로그
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          '분석 결과 삭제',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textDark,
+          ),
+        ),
+        content: const Text(
+          '이 분석 결과를 삭제하시겠어요?\n삭제된 내용은 복구할 수 없습니다.',
+          style: TextStyle(
+            fontSize: 16,
+            color: AppTheme.textDark,
+            height: 1.5,
+          ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              '취소',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red[600],
+            ),
+            child: const Text(
+              '삭제',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) {
+      return; // 취소된 경우
+    }
+
+    // 삭제 진행
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      print('분석 결과 삭제 시작: $_currentDrawingId');
+      
+      // Storage에서 이미지 삭제 (이미지 URL이 있는 경우)
+      if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+        try {
+          print('이미지 삭제 시도: $_imageUrl');
+          await _storageService.deleteDrawing(_imageUrl!);
+          print('이미지 삭제 완료');
+        } catch (e) {
+          print('이미지 삭제 중 오류 발생 (계속 진행): $e');
+          // 이미지 삭제 실패해도 DB 삭제는 계속 진행
+        }
+      }
+      
+      // DB에서 삭제
+      await _drawingsService.deleteDrawing(_currentDrawingId!);
+      print('분석 결과 삭제 완료');
+      
+      if (mounted) {
+        // 삭제 성공 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('분석 결과가 삭제되었습니다.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // 홈 화면으로 돌아가기
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      print('분석 결과 삭제 에러: $e');
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildParentGuideCard(Map<String, dynamic> analysisData) {

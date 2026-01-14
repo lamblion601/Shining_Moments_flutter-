@@ -17,3 +17,4 @@ COMMENT ON COLUMN children.profile_image_url IS '아이 프로필 이미지 URL 
 
 
 
+
