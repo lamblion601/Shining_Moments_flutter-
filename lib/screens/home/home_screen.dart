@@ -805,6 +805,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         children: [
+          // 설명
+          Text(
+            '아이의 반짝이는 순간들을 통해\n마음과 생각을 들여다 보세요',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: AppTheme.textDark.withOpacity(0.9),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
           // 카메라 아이콘
           Container(
             width: 80,
@@ -819,29 +830,20 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppTheme.textDark,
             ),
           ),
-          const SizedBox(height: 16),
-          // 설명
-          Text(
-            '아이의 반짝이는 순간들을 통해\n마음과 생각을 들여다 보세요',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.textDark.withOpacity(0.9),
-              height: 1.5,
-            ),
-          ),
           const SizedBox(height: 24),
           // 시작하기 버튼
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const CaptureScreen(),
                   ),
                 );
+                // 다른 화면에서 돌아올 때 최근 분석 기록 업데이트
+                _loadRecentDrawings();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -1019,10 +1021,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final childName = drawing['child_name'] ?? '아이';
     
     return InkWell(
-      onTap: () {
+      onTap: () async {
         print('분석 기록 클릭: ${drawing['id']}');
         // 분석 결과 페이지로 이동
-        Navigator.of(context).push(
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) {
               // 아이 정보 찾기
@@ -1058,6 +1060,8 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         );
+        // 다른 화면에서 돌아올 때 최근 분석 기록 업데이트
+        _loadRecentDrawings();
       },
       child: _buildRecordCard(
         date: dateText,
