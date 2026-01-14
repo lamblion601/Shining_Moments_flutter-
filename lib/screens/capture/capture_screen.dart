@@ -400,66 +400,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
               ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
-                  color: AppTheme.primary,
+                  color: AppTheme.primaryHover,
                   width: 2,
                 ),
-                foregroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 그림 분석중 버튼 (테스트용)
-          SizedBox(
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                print('그림 분석중 버튼 클릭 - 테스트');
-                // 테스트용 더미 이미지 파일 생성
-                // 실제 파일이 없어도 테스트할 수 있도록 처리
-                _navigateToAnalysisLoading();
-              },
-              icon: const Icon(Icons.auto_awesome, size: 24),
-              label: const Text(
-                '그림 분석중',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryHover,
                 foregroundColor: AppTheme.textDark,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 그림 분석 결과 버튼 (테스트용)
-          SizedBox(
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                print('그림 분석 결과 버튼 클릭 - 테스트');
-                _navigateToAnalysisResult();
-              },
-              icon: const Icon(Icons.assessment, size: 24),
-              label: const Text(
-                '그림 분석 결과',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                elevation: 4,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
